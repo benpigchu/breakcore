@@ -1,0 +1,7 @@
+[package]
+name = "breakcore-docs"
+version = "0.1.0"
+authors = ["benpigchu"]
+edition = "2018"
+
+[dependencies]
