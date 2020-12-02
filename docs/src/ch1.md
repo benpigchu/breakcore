@@ -6,6 +6,8 @@
 
 ## 在 RV64 指令集 no_std 环境下下编译通过
 
+这部分可以参考 [这里的描述](https://docs.rust-embedded.org/embedonomicon/smallest-no-std.html)。
+
 首先我们在 `.cargo` 文件中指定默认 target 为 `riscv64gc-unknown-none-elf`，其次我们在 `os/src/main.rs` 中添加 `#![no_std]` 指明我们不需要使用 `std` （事实上这个 target 也没有 `std` 能让你使用）。
 
 这时，由于标准的 `main` 函数需要一个在运行前先初始化运行时，所以还是不能编译通过。我们需要加上 `#![no_main]` 指明我们没有传统意义上的主函数。
@@ -15,3 +17,28 @@
 完成以上内容之后就可以正确编译了，但是我们还不能加载运行它，而且其实程序此时也没有任何功能。
 
 ## 调整内存布局，初始化运行时，加载运行
+
+要在 qemu 上加载运行我们的系统，我们需要使用一个 bootloader。这里我们使用 RustSBI。
+
+首先我们需要让 qemu 加载 RustSBI。为此我们需要 [下载并解压RustSBI](https://github.com/luojia65/rustsbi/releases/tag/v0.0.2)，然后用 qemu 的 `-bios` 参数让其加载 RustSBI。为了方便，我们将这些操作写入 `Makefile.toml`，于是用 `cargo make run` 运行，可以看到：
+
+```
+[rustsbi] Version 0.1.0
+.______       __    __      _______.___________.  _______..______   __
+|   _  \     |  |  |  |    /       |           | /       ||   _  \ |  |
+|  |_)  |    |  |  |  |   |   (----`---|  |----`|   (----`|  |_)  ||  |
+|      /     |  |  |  |    \   \       |  |      \   \    |   _  < |  |
+|  |\  \----.|  `--'  |.----)   |      |  |  .----)   |   |  |_)  ||  |
+| _| `._____| \______/ |_______/       |__|  |_______/    |______/ |__|
+
+[rustsbi] Platform: QEMU
+[rustsbi] misa: RV64ACDFIMSU
+[rustsbi] mideleg: 0x222
+[rustsbi] medeleg: 0xb109
+[rustsbi] Kernel entry: 0x80200000
+panicked at 'invalid instruction, mepc: 0000000080200000, instruction: 0000000000000000', platform\qemu\src\main.rs:392:17
+QEMU: Terminated
+```
+
+RustSBI 在 qemu 里跑起来了，但是我们的程序还没有加载进去，所以我们可以看到有 RustSBI 在试图加载程序之后报了非法指令的错误。
+

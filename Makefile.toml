@@ -1,0 +1,26 @@
+[config]
+default_to_workspace = false
+
+[env]
+
+
+[tasks.default]
+alias = "empty"
+
+[tasks.install-rustsbi]
+condition = { files_not_exist = ["${CARGO_MAKE_WORKING_DIRECTORY}/bootloader/rustsbi-qemu.bin"] }
+install_script = '''
+mkdir -p bootloader
+echo Installing RustSBI...
+curl -L https://github.com/luojia65/rustsbi/releases/download/v0.0.2/rustsbi-qemu.zip --output bootloader/rustsbi-qemu.zip
+unzip bootloader/rustsbi-qemu.zip -d bootloader
+'''
+
+[tasks.run]
+script = '''
+qemu-system-riscv64 \
+	-machine virt \
+	-nographic \
+	-bios bootloader/rustsbi-qemu.bin
+'''
+dependencies = ["install-rustsbi"]
