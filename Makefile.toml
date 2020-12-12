@@ -2,7 +2,9 @@
 
 
 [env]
-KERNEL_ELF = "target/riscv64gc-unknown-none-elf/debug/breakcore-os"
+RELEASE = { source = "${CARGO_MAKE_PROFILE}", default_value = "false", mapping = {release = "true"} }
+PROFILE_FOLDER = { source = "${CARGO_MAKE_PROFILE}", default_value = "debug", mapping = {release = "release"} }
+KERNEL_ELF = "target/riscv64gc-unknown-none-elf/${PROFILE_FOLDER}/breakcore-os"
 KERNEL_BIN = "${KERNEL_ELF}.bin"
 
 [tasks.default]
@@ -18,7 +20,7 @@ echo Installing RustSBI...
 curl -L https://github.com/rcore-os/rCore-Tutorial-v3/raw/ch1/bootloader/rustsbi-qemu.bin --output bootloader/rustsbi-qemu.bin
 '''
 
-[tasks.run]
+[tasks.just-run]
 workspace = false
 script = '''
 echo ${KERNEL_BIN}
@@ -28,22 +30,38 @@ qemu-system-riscv64 \
 	-bios bootloader/rustsbi-qemu.bin \
 	-device loader,file=${KERNEL_BIN},addr=0x80020000
 '''
+dependencies = ["install-rustsbi"]
+
+[tasks.run]
+workspace = false
+run_task = "just-run"
 dependencies = ["install-rustsbi","kernel"]
 
 [tasks.kernel]
 workspace = false
-dependencies = ["build-kernel"]
 script = '''
 rust-objcopy --binary-architecture=riscv64  \
 	${KERNEL_ELF} \
 	--strip-all -O binary \
 	${KERNEL_BIN}
 '''
+dependencies = ["build-kernel"]
 
 [tasks.build-kernel]
 workspace = false
 env = { CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS = ["os"] }
-run_task = { name = "build", fork = true }
+run_task = [
+	{ name = "build", fork = true, condition = { env_false = ["RELEASE"] } },
+	{ name = "build-release", fork = true, condition = { env_true = ["RELEASE"] } }
+]
+
+[tasks.objdump]
+workspace = false
+script = '''
+rust-objdump --arch-name=riscv64 -x  \
+	${KERNEL_ELF}  | less
+'''
+dependencies = ["kernel"]
 
 [tasks.clean]
 workspace = false

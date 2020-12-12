@@ -59,3 +59,5 @@ RustSBI 在 qemu 里跑起来了，但是我们的程序还没有加载进去，
 在进入我们的主程序之前，我们还需要清空用于存储全局变量的 bss 段以初始化全局变量。好在我们之前已经标记好各段位置的符号，所以只需要拿到这一段的起止地址逐个字节清零即可。注意：为了避免指令重排带来的不一致，我们需要使用 `write_volatile`。
 
 接下来我们需要想办法输出我们的 hello world。在 RV64 当中，bootloader 运行在 M 态，而我们的内核运行在 S 态，我们可以通过 `ecall` 指令来调用 RustSBI 提供的接口来完成一些操作，而这就包括了直接从串口输出字符。可以在 [这里](https://github.com/riscv/riscv-sbi-doc/blob/master/riscv-sbi.adoc) 看到 SBI 接口的详细信息。我们只需要把 `ecall` 包装成函数调用，然后在其上包装出串口写操作，最后由此重建 `print!` 和 `println!` 宏即可。
+
+当然，为了方便调试，我们还要在里 panic handler 里输出相关信息。简单调用一下输出就好。
