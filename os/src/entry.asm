@@ -3,6 +3,8 @@
 _start:
     la sp, boot_stack_top
     call rust_main
+loop:
+    j loop
 
     .section .bss.stack
     .globl boot_stack

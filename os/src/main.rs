@@ -8,6 +8,7 @@ global_asm!(include_str!("entry.asm"));
 
 #[macro_use]
 mod console;
+mod backtrace;
 mod lang;
 mod sbi;
 
@@ -15,7 +16,15 @@ mod sbi;
 pub fn rust_main() -> ! {
     clear_bss();
     println!("Hello, world!");
-    panic!("test panic");
+    test_panic(10)
+}
+
+fn test_panic(depth: usize) -> ! {
+    if depth > 0 {
+        test_panic(depth - 1)
+    } else {
+        panic!("test panic");
+    }
 }
 
 fn clear_bss() {

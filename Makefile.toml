@@ -58,10 +58,9 @@ run_task = [
 [tasks.objdump]
 workspace = false
 script = '''
-rust-objdump --arch-name=riscv64 -x  \
+rust-objdump --arch-name=riscv64 -x --disassemble  \
 	${KERNEL_ELF}  | less
 '''
-dependencies = ["kernel"]
 
 [tasks.clean]
 workspace = false
