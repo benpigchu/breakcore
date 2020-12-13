@@ -50,6 +50,16 @@ dependencies = ["build-kernel"]
 [tasks.build-kernel]
 workspace = false
 env = { CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS = ["os"] }
+run_task = "build-crate"
+
+
+[tasks.build-user]
+workspace = false
+env = { CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS = ["user"] }
+run_task = "build-crate"
+
+[tasks.build-crate]
+workspace = false
 run_task = [
 	{ name = "build", fork = true, condition = { env_false = ["RELEASE"] } },
 	{ name = "build-release", fork = true, condition = { env_true = ["RELEASE"] } }

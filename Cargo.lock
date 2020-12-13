@@ -7,3 +7,7 @@ version = "0.1.0"
 [[package]]
 name = "breakcore-os"
 version = "0.1.0"
+
+[[package]]
+name = "breakcore-user"
+version = "0.1.0"

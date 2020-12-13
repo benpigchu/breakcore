@@ -1,2 +1,2 @@
 [workspace]
-members = ["docs","os"]
+members = ["docs","os","user"]
