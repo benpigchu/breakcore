@@ -47,10 +47,32 @@ rust-objcopy --binary-architecture=riscv64  \
 '''
 dependencies = ["build-kernel"]
 
+
+[tasks.user]
+workspace = false
+script = '''
+for f in user/src/bin/*.rs
+do
+	name=$(echo $f|sed 's/^user\/src\/bin\///;s/\.rs$//')
+	elf="target/riscv64gc-unknown-none-elf/${PROFILE_FOLDER}/$name"
+	bin="$elf.bin"
+	dest_elf="target/riscv64gc-unknown-none-elf/$name"
+	dest_bin="$dest_elf.bin"
+	echo $elf "->" $bin
+	rust-objcopy --binary-architecture=riscv64  \
+		$elf \
+		--strip-all -O binary \
+		$bin
+	cp $bin $dest_bin
+done
+'''
+dependencies = ["build-user"]
+
 [tasks.build-kernel]
 workspace = false
 env = { CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS = ["os"] }
 run_task = "build-crate"
+dependencies = ["user"]
 
 
 [tasks.build-user]

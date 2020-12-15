@@ -5,6 +5,7 @@
 #![feature(panic_info_message)]
 
 global_asm!(include_str!("entry.asm"));
+global_asm!(include_str!("embed_app.asm"));
 
 #[macro_use]
 mod console;
