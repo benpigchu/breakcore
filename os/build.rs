@@ -12,13 +12,10 @@ fn gen_embed_app_asm() {
         .write(true)
         .truncate(true)
         .open("src/embed_app.asm")
-		.unwrap();
-	// We moved the binary when we run the makefile,
-	// so we do not need to change the incbin path when changing profile
-    let app_bin_path = format!(
-        "target/{}/00hello_world.bin",
-        env::var("TARGET").unwrap()
-    );
+        .unwrap();
+    // We moved the binary when we run the makefile,
+    // so we do not need to change the incbin path when changing profile
+    let app_bin_path = format!("target/{}/00hello_world.bin", env::var("TARGET").unwrap());
     write!(
         f,
         r#"

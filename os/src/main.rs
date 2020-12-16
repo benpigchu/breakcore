@@ -3,6 +3,7 @@
 #![feature(global_asm)]
 #![feature(llvm_asm)]
 #![feature(panic_info_message)]
+#![feature(slice_fill)]
 
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("embed_app.asm"));
@@ -10,16 +11,20 @@ global_asm!(include_str!("embed_app.asm"));
 #[macro_use]
 mod console;
 mod backtrace;
+mod batch;
 mod lang;
 mod sbi;
+mod trap;
 
 #[no_mangle]
 pub fn rust_main() -> ! {
     clear_bss();
     println!("Hello, world!");
-    test_panic(10)
+    batch::load_app();
+    batch::launch_app();
 }
 
+#[allow(dead_code)]
 fn test_panic(depth: usize) -> ! {
     if depth > 0 {
         test_panic(depth - 1)
