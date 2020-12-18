@@ -1,7 +1,11 @@
 
     .section .text
+    .globl __alltraps
     .globl __restore
     .align 2
+__alltraps:
+    csrrw sp, sscratch, sp
+	call trap_handler
 __restore:
 	# move to new kernel stack
     mv sp, a0

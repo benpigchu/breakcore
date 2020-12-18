@@ -1,14 +1,18 @@
 #![no_std]
 #![feature(linkage)]
+#![feature(llvm_asm)]
 
 mod lang;
+mod syscall;
+
+use syscall::*;
 
 #[no_mangle]
 #[link_section = ".text.entry"]
 pub extern "C" fn _start() -> ! {
     clear_bss();
-    main();
-    panic!("TODO: exit syscall");
+    let exit_code = main();
+    sys_exit(exit_code)
 }
 
 #[linkage = "weak"]

@@ -20,6 +20,7 @@ mod trap;
 pub fn rust_main() -> ! {
     clear_bss();
     println!("Hello, world!");
+    trap::init();
     batch::load_app();
     batch::launch_app();
 }
