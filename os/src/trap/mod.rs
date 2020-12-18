@@ -1,7 +1,13 @@
 pub mod context;
 
+use crate::batch::exit_app;
+use crate::syscall::syscall;
 use context::TrapContext;
-use riscv::register::{mtvec::TrapMode, stvec};
+use riscv::register::{
+    mtvec::TrapMode,
+    scause::{self, Exception, Trap},
+    stval, stvec,
+};
 
 global_asm!(include_str!("trap.asm"));
 
@@ -17,8 +23,27 @@ pub fn init() {
 #[no_mangle]
 extern "C" fn trap_handler(cx: *mut TrapContext) -> *mut TrapContext {
     let cx = unsafe { cx.as_mut().unwrap() };
-    println!("We are back to kernel!");
-    println!("cx: {:#x?}", cx);
-    loop {}
+    let scause = scause::read();
+    let stval = stval::read();
+    match scause.cause() {
+        Trap::Exception(Exception::UserEnvCall) => {
+            cx.sepc += 4;
+            cx.x[10] = syscall(cx.x[17], cx.x[10], cx.x[11], cx.x[12]) as usize
+        }
+        Trap::Exception(Exception::StoreFault) | Trap::Exception(Exception::StorePageFault) => {
+            println!("[kernel] Page fault in application, stval = {:#x}", stval);
+            exit_app();
+        }
+        Trap::Exception(Exception::IllegalInstruction) => {
+            println!(
+                "[kernel] Illegal instruction in application, stval = {:#x}",
+                stval
+            );
+            exit_app();
+        }
+        cause => {
+            panic!("Unsupported trap {:?}, stval = {:#x}!", cause, stval);
+        }
+    }
     cx as *mut _
 }

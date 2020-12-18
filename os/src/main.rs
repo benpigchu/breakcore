@@ -14,12 +14,13 @@ mod backtrace;
 mod batch;
 mod lang;
 mod sbi;
+mod syscall;
 mod trap;
 
 #[no_mangle]
 pub fn rust_main() -> ! {
     clear_bss();
-    println!("Hello, world!");
+    println!("[kernel] Hello, world!");
     trap::init();
     batch::load_app();
     batch::launch_app();

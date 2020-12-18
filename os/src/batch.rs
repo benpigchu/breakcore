@@ -78,3 +78,7 @@ pub fn launch_app() -> ! {
     }
     unreachable!("We are already in user space!");
 }
+
+pub fn exit_app() -> ! {
+    loop {}
+}
