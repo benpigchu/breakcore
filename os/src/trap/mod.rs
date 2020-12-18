@@ -25,6 +25,7 @@ extern "C" fn trap_handler(cx: *mut TrapContext) -> *mut TrapContext {
     let cx = unsafe { cx.as_mut().unwrap() };
     let scause = scause::read();
     let stval = stval::read();
+
     match scause.cause() {
         Trap::Exception(Exception::UserEnvCall) => {
             cx.sepc += 4;

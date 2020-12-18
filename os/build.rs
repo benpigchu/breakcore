@@ -16,6 +16,7 @@ fn gen_embed_app_asm() {
     // We moved the binary when we run the makefile,
     // so we do not need to change the incbin path when changing profile
     let app_bin_path = format!("target/{}/00hello_world.bin", env::var("TARGET").unwrap());
+    println!("cargo:rerun-if-changed={}", app_bin_path);
     write!(
         f,
         r#"

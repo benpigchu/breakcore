@@ -2,6 +2,8 @@
 #![feature(linkage)]
 #![feature(llvm_asm)]
 
+#[macro_use]
+pub mod console;
 mod lang;
 mod syscall;
 
