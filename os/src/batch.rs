@@ -113,8 +113,8 @@ lazy_static! {
             panic!("Too many apps!");
         }
         let mut app_span = [(0, 0); MAX_APP_NUM];
-        for i in 0..app_num {
-            app_span[i] = unsafe {
+        for (i, span) in app_span.iter_mut().enumerate().take(app_num) {
+            *span = unsafe {
                 (
                     app_list.add(1 + 2 * i).read_volatile(),
                     app_list.add(2 + 2 * i).read_volatile(),
