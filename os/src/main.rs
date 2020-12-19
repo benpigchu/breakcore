@@ -22,8 +22,8 @@ pub fn rust_main() -> ! {
     clear_bss();
     println!("[kernel] Hello, world!");
     trap::init();
-    batch::load_app();
-    batch::launch_app();
+    batch::init();
+    batch::run_next_app();
 }
 
 #[allow(dead_code)]

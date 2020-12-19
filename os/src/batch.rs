@@ -1,8 +1,10 @@
-use crate::trap::context::TrapContext;
-use core::slice;
+use crate::{sbi::shutdown, trap::context::TrapContext};
+use core::{cell::RefCell, slice};
+use lazy_static::*;
 
 const USER_STACK_SIZE: usize = 4096 * 2;
 const KERNEL_STACK_SIZE: usize = 4096 * 2;
+const MAX_APP_NUM: usize = 16;
 const APP_BASE_ADDRESS: usize = 0x80080000;
 const APP_SIZE_LIMIT: usize = 0x20000;
 
@@ -42,13 +44,8 @@ impl UserStack {
     }
 }
 
-pub fn load_app() {
-    extern "C" {
-        fn app_start();
-        fn app_end();
-    }
-    let app_start_address = app_start as usize;
-    let app_end_address = app_end as usize;
+fn load_app(id: usize) {
+    let (app_start_address, app_end_address) = APP_MANAGER.app_span[id];
     let app_bin = unsafe {
         slice::from_raw_parts(
             app_start_address as *const u8,
@@ -67,7 +64,7 @@ pub fn load_app() {
     }
 }
 
-pub fn launch_app() -> ! {
+fn launch_app() -> ! {
     extern "C" {
         fn __restore(kernel_sp: usize);
     }
@@ -79,6 +76,66 @@ pub fn launch_app() -> ! {
     unreachable!("We are already in user space!");
 }
 
+pub fn run_next_app() -> ! {
+    let mut next_app = APP_MANAGER.next_app_id.borrow_mut();
+    if *next_app >= APP_MANAGER.app_num {
+        println!("[kernel] No more app!");
+        shutdown()
+    } else {
+        println!("[kernel] load app: {}", *next_app);
+        load_app(*next_app);
+        *next_app += 1;
+        drop(next_app);
+        launch_app()
+    }
+}
+
 pub fn exit_app() -> ! {
-    loop {}
+    run_next_app()
+}
+
+struct AppManager {
+    app_num: usize,
+    app_span: [(usize, usize); MAX_APP_NUM],
+    next_app_id: RefCell<usize>,
+}
+
+unsafe impl Sync for AppManager {}
+
+lazy_static! {
+    static ref APP_MANAGER: AppManager = {
+        extern "C" {
+            fn app_list();
+        }
+        let app_list = app_list as usize as *const usize;
+        let app_num = unsafe { app_list.read_volatile() };
+        if app_num > MAX_APP_NUM {
+            panic!("Too many apps!");
+        }
+        let mut app_span = [(0, 0); MAX_APP_NUM];
+        for i in 0..app_num {
+            app_span[i] = unsafe {
+                (
+                    app_list.add(1 + 2 * i).read_volatile(),
+                    app_list.add(2 + 2 * i).read_volatile(),
+                )
+            }
+        }
+        AppManager {
+            app_num,
+            app_span,
+            next_app_id: RefCell::new(0),
+        }
+    };
+}
+
+pub fn init() {
+    initialize(&APP_MANAGER);
+    println!("[kernel] app_num: {}", APP_MANAGER.app_num);
+    for i in 0..APP_MANAGER.app_num {
+        println!(
+            "[kernel]     {}: {:#x?}-{:#x?}",
+            i, APP_MANAGER.app_span[i].0, APP_MANAGER.app_span[i].1
+        );
+    }
 }

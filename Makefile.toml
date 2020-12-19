@@ -17,7 +17,7 @@ condition = { files_not_exist = ["${CARGO_MAKE_WORKING_DIRECTORY}/bootloader/rus
 install_script = '''
 mkdir -p bootloader
 echo Installing RustSBI...
-curl -L https://github.com/rcore-os/rCore-Tutorial-v3/raw/ch1/bootloader/rustsbi-qemu.bin --output bootloader/rustsbi-qemu.bin
+curl -L https://github.com/rcore-os/rCore-Tutorial-v3/raw/dev/bootloader/rustsbi-qemu.bin --output bootloader/rustsbi-qemu.bin
 '''
 
 [tasks.just-run]
