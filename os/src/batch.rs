@@ -44,6 +44,10 @@ impl UserStack {
     }
 }
 
+fn app_base_address(id: usize) -> usize {
+    APP_BASE_ADDRESS + id * APP_SIZE_LIMIT
+}
+
 fn load_app(id: usize) {
     let (app_start_address, app_end_address) = APP_MANAGER.app_span[id];
     let app_bin = unsafe {
@@ -52,8 +56,9 @@ fn load_app(id: usize) {
             app_end_address - app_start_address,
         )
     };
+    println!("[kernel] base_addr: {:#x?}", app_base_address(id));
     let app_dest =
-        unsafe { slice::from_raw_parts_mut(APP_BASE_ADDRESS as *mut u8, APP_SIZE_LIMIT) };
+        unsafe { slice::from_raw_parts_mut(app_base_address(id) as *mut u8, APP_SIZE_LIMIT) };
     app_dest.fill(0);
     app_dest
         .get_mut(0..app_bin.len())
@@ -64,13 +69,13 @@ fn load_app(id: usize) {
     }
 }
 
-fn launch_app() -> ! {
+fn launch_app(id: usize) -> ! {
     extern "C" {
         fn __restore(kernel_sp: usize);
     }
     unsafe {
         __restore(
-            KERNEL_STACK.push_context(TrapContext::new(APP_BASE_ADDRESS, USER_STACK.get_sp())),
+            KERNEL_STACK.push_context(TrapContext::new(app_base_address(id), USER_STACK.get_sp())),
         );
     }
     unreachable!("We are already in user space!");
@@ -83,10 +88,11 @@ pub fn run_next_app() -> ! {
         shutdown()
     } else {
         println!("[kernel] load app: {}", *next_app);
-        load_app(*next_app);
+        let next = *next_app;
         *next_app += 1;
         drop(next_app);
-        launch_app()
+        load_app(next);
+        launch_app(next)
     }
 }
 

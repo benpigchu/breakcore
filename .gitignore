@@ -1,3 +1,4 @@
 target
 bootloader
 os/src/embed_app.asm
+user/src/linker.ld

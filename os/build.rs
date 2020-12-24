@@ -7,7 +7,9 @@ fn main() {
     gen_embed_app_asm()
 }
 fn gen_embed_app_asm() {
-    let app_names = ["00hello_world", "01store_fault", "02power"];
+    println!("cargo:rerun-if-env-changed=USER_PROGRAMS");
+    let app_names_raw = env::var("USER_PROGRAMS").unwrap_or_else(|_| "".to_owned());
+    let app_names: Vec<_> = app_names_raw.split_terminator(' ').collect();
     let mut f = OpenOptions::new()
         .create(true)
         .write(true)

@@ -6,3 +6,6 @@ pub mod ch1 {}
 
 #[doc(include = "ch2.md")]
 pub mod ch2 {}
+
+#[doc(include = "ch3-coop.md")]
+pub mod ch3_coop {}

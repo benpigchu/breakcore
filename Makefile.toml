@@ -3,9 +3,13 @@
 
 [env]
 RELEASE = { source = "${CARGO_MAKE_PROFILE}", default_value = "false", mapping = {release = "true"} }
+RELEASE_FLAG = { source = "${CARGO_MAKE_PROFILE}", default_value = "", mapping = {release = "--release"} }
 PROFILE_FOLDER = { source = "${CARGO_MAKE_PROFILE}", default_value = "debug", mapping = {release = "release"} }
 KERNEL_ELF = "target/riscv64gc-unknown-none-elf/${PROFILE_FOLDER}/breakcore-os"
 KERNEL_BIN = "${KERNEL_ELF}.bin"
+USER_PROGRAMS = "00hello_world 01store_fault 02power"
+USER_BASE_ADDRESS = { value = "0x80080000", condition = { env_not_set = ["USER_BASE_ADDRESS"] } }
+CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
 [tasks.default]
 workspace = false
@@ -51,9 +55,10 @@ dependencies = ["user","build-kernel"]
 [tasks.user]
 workspace = false
 script = '''
-for f in user/src/bin/*.rs
+names="${USER_PROGRAMS}"
+for name in $names
 do
-	name=$(echo $f|sed 's/^user\/src\/bin\///;s/\.rs$//')
+	# name=$(echo $f|sed 's/^user\/src\/bin\///;s/\.rs$//')
 	elf="target/riscv64gc-unknown-none-elf/${PROFILE_FOLDER}/$name"
 	bin="$elf.bin"
 	dest_elf="target/riscv64gc-unknown-none-elf/$name"
@@ -77,14 +82,45 @@ dependencies = ["user"]
 
 [tasks.build-user]
 workspace = false
-env = { CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS = ["user"] }
-run_task = "build-crate"
+script_runner = "@duckscript"
+script = '''
+names = split ${USER_PROGRAMS} " "
+len = array_length ${names}
+ids = range 0 ${len}
+for id in ${ids}
+	name = array_get ${names} ${id}
+	calc = exec calc -p "base(16),;print 0x80080000+${id}*0x00020000"
+	addr = trim ${calc.stdout}
+	echo ${id} ${name} ${addr}
+	set_env USER_BINARY ${name}
+	set_env USER_BASE_ADDRESS ${addr}
+	cm_run_task build-user-bin
+end
+'''
 
 [tasks.build-crate]
 workspace = false
 run_task = [
 	{ name = "build", fork = true, condition = { env_false = ["RELEASE"] } },
 	{ name = "build-release", fork = true, condition = { env_true = ["RELEASE"] } }
+]
+
+[tasks.build-user-bin]
+workspace = false
+env = { CARGO_MAKE_WORKSPACE_INCLUDE_MEMBERS = ["user"] }
+run_task = [
+	{ name = "build-user-bin-inner", fork = true },
+]
+
+[tasks.build-user-bin-inner]
+command = "cargo"
+args = [
+	"build",
+	"@@remove-empty(RELEASE_FLAG)",
+	"@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)",
+	"@@split(CARGO_MAKE_CARGO_BUILD_TEST_FLAGS, )",
+	"--bin",
+	"${USER_BINARY}"
 ]
 
 [tasks.objdump]
