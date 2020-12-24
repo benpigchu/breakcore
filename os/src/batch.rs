@@ -18,12 +18,12 @@ struct UserStack {
     data: [u8; USER_STACK_SIZE],
 }
 
-static KERNEL_STACK: KernelStack = KernelStack {
+static KERNEL_STACK: [KernelStack; MAX_APP_NUM] = [KernelStack {
     data: [0; KERNEL_STACK_SIZE],
-};
-static USER_STACK: UserStack = UserStack {
+}; MAX_APP_NUM];
+static USER_STACK: [UserStack; MAX_APP_NUM] = [UserStack {
     data: [0; USER_STACK_SIZE],
-};
+}; MAX_APP_NUM];
 
 impl KernelStack {
     fn get_sp(&self) -> usize {
@@ -74,9 +74,10 @@ fn launch_app(id: usize) -> ! {
         fn __restore(kernel_sp: usize);
     }
     unsafe {
-        __restore(
-            KERNEL_STACK.push_context(TrapContext::new(app_base_address(id), USER_STACK.get_sp())),
-        );
+        __restore(KERNEL_STACK[id].push_context(TrapContext::new(
+            app_base_address(id),
+            USER_STACK[id].get_sp(),
+        )));
     }
     unreachable!("We are already in user space!");
 }

@@ -4,6 +4,7 @@
 #![feature(llvm_asm)]
 #![feature(panic_info_message)]
 #![feature(slice_fill)]
+#![feature(const_in_array_repeat_expressions)]
 
 global_asm!(include_str!("entry.asm"));
 global_asm!(include_str!("embed_app.asm"));
