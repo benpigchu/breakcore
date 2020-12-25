@@ -1,13 +1,20 @@
-use crate::{sbi::shutdown, trap::context::TrapContext};
-use core::{cell::RefCell, slice};
+use crate::trap::context::TrapContext;
+use core::slice;
 use lazy_static::*;
+
+global_asm!(include_str!("embed_app.asm"));
 
 const USER_STACK_SIZE: usize = 4096 * 2;
 const KERNEL_STACK_SIZE: usize = 4096 * 2;
 const MAX_APP_NUM: usize = 16;
-const APP_BASE_ADDRESS: usize = 0x80080000;
-const APP_SIZE_LIMIT: usize = 0x20000;
-
+lazy_static! {
+    static ref APP_BASE_ADDRESS: usize = option_env!("USER_BASE_ADDRESS_START")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0x80100000);
+    static ref APP_SIZE_LIMIT: usize = option_env!("USER_BASE_ADDRESS_STEP")
+        .and_then(|s| s.parse().ok())
+        .unwrap_or(0x00020000);
+}
 #[repr(align(4096))]
 struct KernelStack {
     data: [u8; KERNEL_STACK_SIZE],
@@ -44,73 +51,26 @@ impl UserStack {
     }
 }
 
+pub fn init_stack(id: usize) -> usize {
+    KERNEL_STACK[id].push_context(TrapContext::new(
+        app_base_address(id),
+        USER_STACK[id].get_sp(),
+    ))
+}
+
 fn app_base_address(id: usize) -> usize {
-    APP_BASE_ADDRESS + id * APP_SIZE_LIMIT
+    (*APP_BASE_ADDRESS) + id * (*APP_SIZE_LIMIT)
 }
 
-fn load_app(id: usize) {
-    let (app_start_address, app_end_address) = APP_MANAGER.app_span[id];
-    let app_bin = unsafe {
-        slice::from_raw_parts(
-            app_start_address as *const u8,
-            app_end_address - app_start_address,
-        )
-    };
-    println!("[kernel] base_addr: {:#x?}", app_base_address(id));
-    let app_dest =
-        unsafe { slice::from_raw_parts_mut(app_base_address(id) as *mut u8, APP_SIZE_LIMIT) };
-    app_dest.fill(0);
-    app_dest
-        .get_mut(0..app_bin.len())
-        .expect("App binary is too big!")
-        .copy_from_slice(app_bin);
-    unsafe {
-        llvm_asm!("fence.i" :::: "volatile");
-    }
-}
-
-fn launch_app(id: usize) -> ! {
-    extern "C" {
-        fn __restore(kernel_sp: usize);
-    }
-    unsafe {
-        __restore(KERNEL_STACK[id].push_context(TrapContext::new(
-            app_base_address(id),
-            USER_STACK[id].get_sp(),
-        )));
-    }
-    unreachable!("We are already in user space!");
-}
-
-pub fn run_next_app() -> ! {
-    let mut next_app = APP_MANAGER.next_app_id.borrow_mut();
-    if *next_app >= APP_MANAGER.app_num {
-        println!("[kernel] No more app!");
-        shutdown()
-    } else {
-        println!("[kernel] load app: {}", *next_app);
-        let next = *next_app;
-        *next_app += 1;
-        drop(next_app);
-        load_app(next);
-        launch_app(next)
-    }
-}
-
-pub fn exit_app() -> ! {
-    run_next_app()
-}
-
-struct AppManager {
-    app_num: usize,
+pub struct AppManager {
+    pub app_num: usize,
     app_span: [(usize, usize); MAX_APP_NUM],
-    next_app_id: RefCell<usize>,
 }
 
 unsafe impl Sync for AppManager {}
 
 lazy_static! {
-    static ref APP_MANAGER: AppManager = {
+    pub static ref APP_MANAGER: AppManager = {
         extern "C" {
             fn app_list();
         }
@@ -128,21 +88,40 @@ lazy_static! {
                 )
             }
         }
-        AppManager {
-            app_num,
-            app_span,
-            next_app_id: RefCell::new(0),
-        }
+        AppManager { app_num, app_span }
     };
 }
 
-pub fn init() {
-    initialize(&APP_MANAGER);
-    println!("[kernel] app_num: {}", APP_MANAGER.app_num);
-    for i in 0..APP_MANAGER.app_num {
-        println!(
-            "[kernel]     {}: {:#x?}-{:#x?}",
-            i, APP_MANAGER.app_span[i].0, APP_MANAGER.app_span[i].1
-        );
+impl AppManager {
+    pub fn print_info(&self) {
+        println!("[kernel] app_num: {}", APP_MANAGER.app_num);
+        for i in 0..APP_MANAGER.app_num {
+            println!(
+                "[kernel]     {}: {:#x?}-{:#x?}",
+                i, APP_MANAGER.app_span[i].0, APP_MANAGER.app_span[i].1
+            );
+        }
+        println!("[kernel] APP_BASE_ADDRESS: {:#x?}", *APP_BASE_ADDRESS);
+        println!("[kernel] APP_SIZE_LIMIT: {:#x?}", *APP_SIZE_LIMIT);
+    }
+    pub fn load_app(&self, id: usize) {
+        let (app_start_address, app_end_address) = self.app_span[id];
+        let app_bin = unsafe {
+            slice::from_raw_parts(
+                app_start_address as *const u8,
+                app_end_address - app_start_address,
+            )
+        };
+        println!("[kernel] base_addr: {:#x?}", app_base_address(id));
+        let app_dest =
+            unsafe { slice::from_raw_parts_mut(app_base_address(id) as *mut u8, *APP_SIZE_LIMIT) };
+        app_dest.fill(0);
+        app_dest
+            .get_mut(0..app_bin.len())
+            .expect("App binary is too big!")
+            .copy_from_slice(app_bin);
+        unsafe {
+            llvm_asm!("fence.i" :::: "volatile");
+        }
     }
 }

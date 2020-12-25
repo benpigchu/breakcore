@@ -7,25 +7,27 @@
 #![feature(const_in_array_repeat_expressions)]
 
 global_asm!(include_str!("entry.asm"));
-global_asm!(include_str!("embed_app.asm"));
 
 #[macro_use]
 mod console;
 mod backtrace;
-mod task;
-mod loader;
 mod lang;
+mod loader;
 mod sbi;
 mod syscall;
+mod task;
 mod trap;
+
+use loader::APP_MANAGER;
+use task::TASK_MANAGER;
 
 #[no_mangle]
 pub fn rust_main() -> ! {
     clear_bss();
     println!("[kernel] Hello, world!");
     trap::init();
-    loader::init();
-    loader::run_next_app();
+    APP_MANAGER.print_info();
+    TASK_MANAGER.run_next_app();
 }
 
 #[allow(dead_code)]
@@ -45,4 +47,5 @@ fn clear_bss() {
     for addr in (sbss as usize)..(ebss as usize) {
         unsafe { (addr as *mut u8).write_volatile(0) }
     }
+    println!("[kernel] bss: {:#x?}-{:#x?}", sbss as usize, ebss as usize);
 }
