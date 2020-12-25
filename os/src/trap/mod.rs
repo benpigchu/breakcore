@@ -1,6 +1,6 @@
 pub mod context;
 
-use crate::batch::exit_app;
+use crate::loader::exit_app;
 use crate::syscall::syscall;
 use context::TrapContext;
 use riscv::register::{

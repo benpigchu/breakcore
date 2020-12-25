@@ -12,7 +12,8 @@ global_asm!(include_str!("embed_app.asm"));
 #[macro_use]
 mod console;
 mod backtrace;
-mod batch;
+mod task;
+mod loader;
 mod lang;
 mod sbi;
 mod syscall;
@@ -23,8 +24,8 @@ pub fn rust_main() -> ! {
     clear_bss();
     println!("[kernel] Hello, world!");
     trap::init();
-    batch::init();
-    batch::run_next_app();
+    loader::init();
+    loader::run_next_app();
 }
 
 #[allow(dead_code)]
