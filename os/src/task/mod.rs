@@ -3,6 +3,9 @@ use crate::sbi::shutdown;
 use core::cell::RefCell;
 use lazy_static::*;
 
+mod context;
+pub use context::*;
+
 #[derive(Copy, Clone, PartialEq)]
 pub enum TaskStatus {
     UnInit,
@@ -12,7 +15,14 @@ pub enum TaskStatus {
 }
 
 struct Task {
+    kernel_sp: usize,
     status: TaskStatus,
+}
+
+impl Task {
+    fn get_kernel_sp_ptr(&self) -> usize {
+        &self.kernel_sp as *const usize as usize
+    }
 }
 
 pub struct TaskManager {
@@ -32,6 +42,7 @@ lazy_static! {
         inner: RefCell::new(TaskManagerInner {
             current: 0,
             tasks: [Task {
+                kernel_sp: 0,
                 status: TaskStatus::UnInit
             }; MAX_APP_NUM]
         }),
@@ -39,15 +50,28 @@ lazy_static! {
 }
 
 impl TaskManager {
-    fn switch_to_task(&self, id: usize) -> ! {
-        APP_MANAGER.load_app(id);
-        extern "C" {
-            fn __restore(kernel_sp: usize);
-        }
+    pub fn launch_first_task(&self) -> ! {
+        let mut inner = self.inner.borrow_mut();
+        inner.init_task(0);
+        let next_kernel_sp_ptr = inner.tasks[0].get_kernel_sp_ptr();
+        let current_kernel_sp = 0usize;
+        let current_kernel_sp_ptr = &current_kernel_sp as *const usize as usize;
+        inner.tasks[0].status = TaskStatus::Running;
+        drop(inner);
         unsafe {
-            __restore(init_stack(id));
+            __switch(current_kernel_sp_ptr, next_kernel_sp_ptr);
         }
-        unreachable!("We are already in user space!");
+        unreachable!("We will no use boot_stack from here!");
+    }
+
+    fn switch_to_task(&self, current: usize, next: usize) {
+        let inner = self.inner.borrow();
+        let current_kernel_sp_ptr = inner.tasks[current].get_kernel_sp_ptr();
+        let next_kernel_sp_ptr = inner.tasks[next].get_kernel_sp_ptr();
+        drop(inner);
+        unsafe {
+            __switch(current_kernel_sp_ptr, next_kernel_sp_ptr);
+        }
     }
 
     fn find_next_task(&self) -> Option<usize> {
@@ -64,7 +88,7 @@ impl TaskManager {
         None
     }
 
-    pub fn switch_task(&self) -> ! {
+    pub fn switch_task(&self) {
         if let Some(next) = self.find_next_task() {
             let mut inner = self.inner.borrow_mut();
             let current = inner.current;
@@ -73,12 +97,11 @@ impl TaskManager {
                 inner.tasks[current].status = TaskStatus::Ready
             }
             if inner.tasks[next].status == TaskStatus::UnInit {
-                println!("[kernel] load app: {}", next);
-                APP_MANAGER.load_app(next)
+                inner.init_task(next);
             }
             inner.tasks[next].status = TaskStatus::Running;
             drop(inner);
-            self.switch_to_task(next)
+            self.switch_to_task(current, next)
         } else {
             println!("[kernel] No more app!");
             shutdown()
@@ -90,6 +113,15 @@ impl TaskManager {
         let current = inner.current;
         inner.tasks[current].status = TaskStatus::Exited;
         drop(inner);
-        self.switch_task()
+        self.switch_task();
+        unreachable!("We should not switch back to exited task!");
+    }
+}
+
+impl TaskManagerInner {
+    fn init_task(&mut self, id: usize) {
+        println!("[kernel] load app: {}", id);
+        APP_MANAGER.load_app(id);
+        self.tasks[id].kernel_sp = init_stack(id)
     }
 }

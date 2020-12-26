@@ -27,7 +27,7 @@ pub fn rust_main() -> ! {
     println!("[kernel] Hello, world!");
     trap::init();
     APP_MANAGER.print_info();
-    TASK_MANAGER.switch_task();
+    TASK_MANAGER.launch_first_task();
 }
 
 #[allow(dead_code)]

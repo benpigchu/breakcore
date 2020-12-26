@@ -1,4 +1,4 @@
-use crate::trap::context::TrapContext;
+use crate::{task::TaskContext, trap::context::TrapContext};
 use core::slice;
 use lazy_static::*;
 
@@ -36,12 +36,20 @@ impl KernelStack {
     fn get_sp(&self) -> usize {
         self.data.as_ptr() as usize + KERNEL_STACK_SIZE
     }
-    pub fn push_context(&self, cx: TrapContext) -> usize {
-        let cx_ptr = (self.get_sp() - core::mem::size_of::<TrapContext>()) as *mut TrapContext;
+    pub fn push_context(&self, trap_cx: TrapContext, task_cx: TaskContext) -> usize {
+        let trap_cx_ptr = (self.get_sp() - core::mem::size_of::<TrapContext>()) as *mut TrapContext;
         unsafe {
-            *cx_ptr = cx;
+            *trap_cx_ptr = trap_cx;
         }
-        cx_ptr as usize
+        let task_cx_ptr =
+            (trap_cx_ptr as usize - core::mem::size_of::<TaskContext>()) as *mut TaskContext;
+        unsafe {
+            *task_cx_ptr = task_cx;
+        }
+        println!("[kernel] ra: {:#x?}", unsafe {
+            (task_cx_ptr as *const usize).read_volatile()
+        });
+        task_cx_ptr as usize
     }
 }
 
@@ -52,10 +60,10 @@ impl UserStack {
 }
 
 pub fn init_stack(id: usize) -> usize {
-    KERNEL_STACK[id].push_context(TrapContext::new(
-        app_base_address(id),
-        USER_STACK[id].get_sp(),
-    ))
+    KERNEL_STACK[id].push_context(
+        TrapContext::new(app_base_address(id), USER_STACK[id].get_sp()),
+        TaskContext::goto_restore(),
+    )
 }
 
 fn app_base_address(id: usize) -> usize {
