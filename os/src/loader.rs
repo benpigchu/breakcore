@@ -6,7 +6,7 @@ global_asm!(include_str!("embed_app.asm"));
 
 const USER_STACK_SIZE: usize = 4096 * 2;
 const KERNEL_STACK_SIZE: usize = 4096 * 2;
-const MAX_APP_NUM: usize = 16;
+pub const MAX_APP_NUM: usize = 16;
 lazy_static! {
     static ref APP_BASE_ADDRESS: usize = option_env!("USER_BASE_ADDRESS_START")
         .and_then(|s| s.parse().ok())
