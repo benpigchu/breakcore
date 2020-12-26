@@ -7,7 +7,7 @@ pub mod console;
 mod lang;
 mod syscall;
 
-use syscall::*;
+pub use syscall::*;
 
 #[no_mangle]
 #[link_section = ".text.entry"]
