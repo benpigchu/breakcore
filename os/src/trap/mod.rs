@@ -35,14 +35,14 @@ extern "C" fn trap_handler(cx: *mut TrapContext) -> *mut TrapContext {
         | Trap::Exception(Exception::StorePageFault)
         | Trap::Exception(Exception::LoadFault) => {
             println!("[kernel] Page fault in application, stval = {:#x}", stval);
-            TASK_MANAGER.exit_task();
+            TASK_MANAGER.exit_task(-1);
         }
         Trap::Exception(Exception::IllegalInstruction) => {
             println!(
                 "[kernel] Illegal instruction in application, stval = {:#x}",
                 stval
             );
-            TASK_MANAGER.exit_task();
+            TASK_MANAGER.exit_task(-1);
         }
         cause => {
             panic!("Unsupported trap {:?}, stval = {:#x}!", cause, stval);

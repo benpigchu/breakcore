@@ -46,9 +46,6 @@ impl KernelStack {
         unsafe {
             *task_cx_ptr = task_cx;
         }
-        println!("[kernel] ra: {:#x?}", unsafe {
-            (task_cx_ptr as *const usize).read_volatile()
-        });
         task_cx_ptr as usize
     }
 }
