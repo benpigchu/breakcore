@@ -65,6 +65,9 @@ impl TaskManager {
     }
 
     fn switch_to_task(&self, current: usize, next: usize) {
+        if current == next {
+            return;
+        }
         let inner = self.inner.borrow();
         let current_kernel_sp_ptr = inner.tasks[current].get_kernel_sp_ptr();
         let next_kernel_sp_ptr = inner.tasks[next].get_kernel_sp_ptr();
@@ -77,10 +80,10 @@ impl TaskManager {
     fn find_next_task(&self) -> Option<usize> {
         let inner = self.inner.borrow();
         for i in 0..self.app_num {
-            let id = (i + inner.current) % self.app_num;
+            let id = (i + inner.current + 1) % self.app_num;
             if matches!(
                 inner.tasks[id].status,
-                TaskStatus::UnInit | TaskStatus::Ready
+                TaskStatus::UnInit | TaskStatus::Ready | TaskStatus::Running
             ) {
                 return Some(id);
             }
