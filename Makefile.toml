@@ -7,7 +7,7 @@ RELEASE_FLAG = { source = "${CARGO_MAKE_PROFILE}", default_value = "", mapping =
 PROFILE_FOLDER = { source = "${CARGO_MAKE_PROFILE}", default_value = "debug", mapping = {release = "release"} }
 KERNEL_ELF = "target/riscv64gc-unknown-none-elf/${PROFILE_FOLDER}/breakcore-os"
 KERNEL_BIN = "${KERNEL_ELF}.bin"
-USER_PROGRAMS = "00power_3 01power_5 02power_7"
+USER_PROGRAMS = "00power_3 01power_5 02power_7 03sleep"
 USER_BASE_ADDRESS = { value = "0x80100000", condition = { env_not_set = ["USER_BASE_ADDRESS"] } }
 USER_BASE_ADDRESS_START = "0x80100000"
 USER_BASE_ADDRESS_STEP = "0x00020000"

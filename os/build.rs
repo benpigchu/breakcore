@@ -44,7 +44,7 @@ app_list:
         // so we do not need to change the incbin path when changing profile
         let app_bin_path = format!("target/{}/{}.bin", env::var("TARGET").unwrap(), name);
         println!("cargo:rerun-if-changed=../user/src/bin/{}.rs", name);
-        println!("cargo:rerun-if-changed={}", app_bin_path);
+        println!("cargo:rerun-if-changed=../{}", app_bin_path);
 
         write!(
             f,
