@@ -1,17 +1,20 @@
 pub mod context;
 
-use crate::syscall::syscall;
 use crate::task::TASK_MANAGER;
+use crate::{syscall::syscall, timer};
 use context::TrapContext;
 use riscv::register::{
     mtvec::TrapMode,
     scause::{self, Exception, Trap},
-    stval, stvec,
+    sstatus, stval, stvec,
 };
 
 global_asm!(include_str!("trap.asm"));
 
 pub fn init() {
+    unsafe {
+        sstatus::set_spie();
+    }
     extern "C" {
         fn __alltraps();
     }
@@ -43,6 +46,10 @@ extern "C" fn trap_handler(cx: *mut TrapContext) -> *mut TrapContext {
                 stval
             );
             TASK_MANAGER.exit_task(-1);
+        }
+        Trap::Interrupt(scause::Interrupt::SupervisorTimer) => {
+            timer::schedule_next();
+            TASK_MANAGER.switch_task();
         }
         cause => {
             panic!("Unsupported trap {:?}, stval = {:#x}!", cause, stval);

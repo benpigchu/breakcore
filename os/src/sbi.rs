@@ -38,3 +38,7 @@ pub fn shutdown() -> ! {
     #[allow(clippy::empty_loop)]
     loop {}
 }
+
+pub fn set_timer(timer: usize) {
+    sbi_call(SBI_SET_TIMER, timer, 0, 0);
+}

@@ -16,6 +16,7 @@ mod loader;
 mod sbi;
 mod syscall;
 mod task;
+mod timer;
 mod trap;
 
 use loader::APP_MANAGER;
@@ -26,6 +27,8 @@ pub fn rust_main() -> ! {
     clear_bss();
     println!("[kernel] Hello, world!");
     trap::init();
+    timer::init();
+    timer::schedule_next();
     APP_MANAGER.print_info();
     TASK_MANAGER.launch_first_task();
 }
