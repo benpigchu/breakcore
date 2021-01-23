@@ -9,10 +9,10 @@ const KERNEL_STACK_SIZE: usize = 4096 * 2;
 pub const MAX_APP_NUM: usize = 16;
 lazy_static! {
     static ref APP_BASE_ADDRESS: usize = option_env!("USER_BASE_ADDRESS_START")
-        .and_then(|s| s.parse().ok())
+        .and_then(|s| usize::from_str_radix(s.trim_start_matches("0x"), 16).ok())
         .unwrap_or(0x80100000);
     static ref APP_SIZE_LIMIT: usize = option_env!("USER_BASE_ADDRESS_STEP")
-        .and_then(|s| s.parse().ok())
+        .and_then(|s| usize::from_str_radix(s.trim_start_matches("0x"), 16).ok())
         .unwrap_or(0x00020000);
 }
 #[repr(align(4096))]
