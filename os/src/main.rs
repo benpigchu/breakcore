@@ -5,14 +5,18 @@
 #![feature(panic_info_message)]
 #![feature(slice_fill)]
 #![feature(const_in_array_repeat_expressions)]
+#![feature(alloc_error_handler)]
 
 global_asm!(include_str!("entry.asm"));
+
+extern crate alloc;
 
 #[macro_use]
 mod console;
 mod backtrace;
 mod lang;
 mod loader;
+mod mm;
 mod sbi;
 mod syscall;
 mod task;
@@ -26,6 +30,7 @@ use task::TASK_MANAGER;
 pub fn rust_main() -> ! {
     clear_bss();
     println!("[kernel] Hello, world!");
+    mm::init();
     trap::init();
     timer::init();
     timer::schedule_next();

@@ -12,3 +12,6 @@ pub mod ch3_coop {}
 
 #[doc(include = "ch3-int.md")]
 pub mod ch3_int {}
+
+#[doc(include = "ch4.md")]
+pub mod ch4 {}
