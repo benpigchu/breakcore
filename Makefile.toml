@@ -7,9 +7,10 @@ RELEASE_FLAG = { source = "${CARGO_MAKE_PROFILE}", default_value = "", mapping =
 PROFILE_FOLDER = { source = "${CARGO_MAKE_PROFILE}", default_value = "debug", mapping = {release = "release"} }
 KERNEL_ELF = "target/riscv64gc-unknown-none-elf/${PROFILE_FOLDER}/breakcore-os"
 KERNEL_BIN = "${KERNEL_ELF}.bin"
+KERNEL_DEBUGINFO = "${KERNEL_ELF}.debuginfo"
 USER_PROGRAMS = "00power_3 01power_5 02power_7 03sleep"
-USER_BASE_ADDRESS = { value = "0x80400000", condition = { env_not_set = ["USER_BASE_ADDRESS"] } }
-USER_BASE_ADDRESS_START = "0x80400000"
+USER_BASE_ADDRESS = { value = "0x81000000", condition = { env_not_set = ["USER_BASE_ADDRESS"] } }
+USER_BASE_ADDRESS_START = "0x81000000"
 USER_BASE_ADDRESS_STEP = "0x00020000"
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
@@ -32,9 +33,11 @@ script = '''
 echo ${KERNEL_BIN}
 qemu-system-riscv64 \
 	-machine virt \
+	-m 128M \
 	-nographic \
 	-bios bootloader/rustsbi-qemu.bin \
-	-device loader,file=${KERNEL_BIN},addr=0x80020000
+	-device loader,file=${KERNEL_BIN},addr=0x80020000 \
+	-device loader,file=${KERNEL_DEBUGINFO},addr=0x80800000,force-raw=on
 '''
 dependencies = ["install-rustsbi"]
 
@@ -50,6 +53,11 @@ rust-objcopy --binary-architecture=riscv64  \
 	${KERNEL_ELF} \
 	--strip-all -O binary \
 	${KERNEL_BIN}
+rust-objcopy --binary-architecture=riscv64  \
+	${KERNEL_ELF} \
+	--only-keep-debug \
+	${KERNEL_DEBUGINFO}
+echo ${KERNEL_ELF} "->" ${KERNEL_BIN} ${KERNEL_DEBUGINFO}
 '''
 dependencies = ["user","build-kernel"]
 

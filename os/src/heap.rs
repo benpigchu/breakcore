@@ -1,7 +1,7 @@
 use crate::sbi::shutdown;
 use buddy_system_allocator::LockedHeap;
 
-const KERNEL_HEAP_SIZE: usize = 0x300000;
+const KERNEL_HEAP_SIZE: usize = 0x400000;
 #[repr(align(4096))]
 struct Heap {
     data: [u8; KERNEL_HEAP_SIZE],
@@ -24,7 +24,7 @@ pub fn init() {
         let heap_start = HEAP_SPACE.data.as_ptr() as usize;
         println!("[kernel] heap: {:#x?}+{:#x?}", heap_start, KERNEL_HEAP_SIZE);
         HEAP_ALLOCATOR.lock().init(heap_start, KERNEL_HEAP_SIZE);
-	}
+    }
 }
 
 #[allow(dead_code)]

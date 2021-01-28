@@ -14,6 +14,7 @@ extern crate alloc;
 #[macro_use]
 mod console;
 mod backtrace;
+mod heap;
 mod lang;
 mod loader;
 mod mm;
@@ -30,6 +31,8 @@ use task::TASK_MANAGER;
 pub fn rust_main() -> ! {
     clear_bss();
     println!("[kernel] Hello, world!");
+    heap::init();
+    backtrace::init();
     mm::init();
     trap::init();
     timer::init();
