@@ -49,6 +49,7 @@ name = "breakcore-os"
 version = "0.1.0"
 dependencies = [
  "addr2line",
+ "bitflags",
  "buddy_system_allocator",
  "derive_more",
  "lazy_static",

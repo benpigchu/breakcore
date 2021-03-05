@@ -14,3 +14,4 @@ object = { version = "0.23.0", default-features = false, features = ["read_core"
 addr2line = { version = "0.14.1", default-features = false, features = ["rustc-demangle"]}
 derive_more = "0.99.11"
 spin = "0.7.1"
+bitflags = "1.2.1"

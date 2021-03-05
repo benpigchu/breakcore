@@ -90,3 +90,14 @@ impl PhysAddr {
         usize::from(*self) as *mut T
     }
 }
+
+impl VirtPageNum {
+    /// Used by page table
+    pub fn indexes(&self) -> [usize; 3] {
+        [
+            usize::from(*self) % (1usize << 9),
+            (usize::from(*self) >> 9) % (1usize << 9),
+            (usize::from(*self) >> 18) % (1usize << 9),
+        ]
+    }
+}

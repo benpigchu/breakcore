@@ -1,7 +1,6 @@
-mod addr;
+pub mod addr;
 mod frame;
-
-pub use addr::*;
+mod page_table;
 
 pub fn init() {
     frame::init()

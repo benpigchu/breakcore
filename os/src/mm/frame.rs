@@ -7,15 +7,34 @@ pub const MEMORY_END: usize = 0x88000000; //128MiB
 
 #[derive(Debug)]
 pub struct Frame {
-    pub ppn: PhysPageNum,
+    ppn: PhysPageNum,
 }
 
 impl Frame {
-    #[allow(dead_code)]
-    fn alloc() -> Option<Self> {
+    pub fn alloc_zeroes() -> Option<Self> {
+        Self::alloc_uninitialized().map(|frame| {
+            unsafe {
+                frame
+                    .ppn
+                    .addr()
+                    .get_mut::<[u8; PAGE_SIZE]>()
+                    .as_mut()
+                    .unwrap()
+                    .fill(0)
+            };
+            frame
+        })
+    }
+    pub fn alloc_uninitialized() -> Option<Self> {
         Some(Frame {
             ppn: FRAME_ALLOCATOR.lock().alloc()?,
         })
+    }
+    pub fn ppn(&self) -> PhysPageNum {
+        self.ppn
+    }
+    pub fn manually_drop(ppn: PhysPageNum) {
+        FRAME_ALLOCATOR.lock().dealloc(ppn)
     }
 }
 
@@ -86,11 +105,10 @@ impl FrameAllocator for LinkedStackFrameAllocator {
 type FrameAllocatorImpl = LinkedStackFrameAllocator;
 
 lazy_static! {
-    pub static ref FRAME_ALLOCATOR: Mutex<FrameAllocatorImpl> =
-        Mutex::new(FrameAllocatorImpl::new(
-            PhysAddr::from(MEMORY_START).floor_page_num(),
-            PhysAddr::from(MEMORY_END).ceil_page_num()
-        ));
+    static ref FRAME_ALLOCATOR: Mutex<FrameAllocatorImpl> = Mutex::new(FrameAllocatorImpl::new(
+        PhysAddr::from(MEMORY_START).floor_page_num(),
+        PhysAddr::from(MEMORY_END).ceil_page_num()
+    ));
 }
 
 pub fn init() {
