@@ -1,5 +1,8 @@
 use derive_more::{From, Into};
 
+pub const MEMORY_START: usize = 0x80000000; //128MiB
+pub const MEMORY_END: usize = 0x88000000; //128MiB
+
 pub const PAGE_SIZE: usize = 0x1000;
 #[allow(dead_code)]
 pub const PAGE_SIZE_LOG2: usize = 12;
@@ -95,9 +98,9 @@ impl VirtPageNum {
     /// Used by page table
     pub fn indexes(&self) -> [usize; 3] {
         [
-            usize::from(*self) % (1usize << 9),
-            (usize::from(*self) >> 9) % (1usize << 9),
             (usize::from(*self) >> 18) % (1usize << 9),
+            (usize::from(*self) >> 9) % (1usize << 9),
+            usize::from(*self) % (1usize << 9),
         ]
     }
 }

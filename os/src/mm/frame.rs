@@ -2,8 +2,7 @@ use super::addr::*;
 use lazy_static::{initialize, lazy_static};
 use spin::Mutex;
 
-pub const MEMORY_START: usize = 0x82000000; //128MiB
-pub const MEMORY_END: usize = 0x88000000; //128MiB
+pub const FRAME_MEMORY_START: usize = 0x82000000; //128MiB
 
 #[derive(Debug)]
 pub struct Frame {
@@ -106,7 +105,7 @@ type FrameAllocatorImpl = LinkedStackFrameAllocator;
 
 lazy_static! {
     static ref FRAME_ALLOCATOR: Mutex<FrameAllocatorImpl> = Mutex::new(FrameAllocatorImpl::new(
-        PhysAddr::from(MEMORY_START).floor_page_num(),
+        PhysAddr::from(FRAME_MEMORY_START).floor_page_num(),
         PhysAddr::from(MEMORY_END).ceil_page_num()
     ));
 }

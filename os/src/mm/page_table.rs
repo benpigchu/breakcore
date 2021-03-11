@@ -122,9 +122,9 @@ impl RawPageTable {
         *pte = PageTableEntry::new_empty()
     }
     pub fn query(&self, vpn: VirtPageNum) -> Option<PageTableEntry> {
-        self.find_pte(vpn, false).map(|pte| pte.clone())
+        self.find_pte(vpn, false).map(|pte| *pte)
     }
-    pub fn satp(&self) -> usize {
+    pub fn token(&self) -> usize {
         8usize << 60 | usize::from(self.root)
     }
 }
@@ -184,7 +184,7 @@ pub struct PageTableRef {
 }
 
 impl PageTableRef {
-    pub fn from_satp(satp: usize) -> Self {
+    pub fn from_token(satp: usize) -> Self {
         let ppn = PhysPageNum::from(satp % (1usize << 44));
         PageTableRef {
             raw: RawPageTable { root: ppn },

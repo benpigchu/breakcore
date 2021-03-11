@@ -36,7 +36,10 @@ extern "C" fn trap_handler(cx: *mut TrapContext) -> *mut TrapContext {
         }
         Trap::Exception(Exception::StoreFault)
         | Trap::Exception(Exception::StorePageFault)
-        | Trap::Exception(Exception::LoadFault) => {
+        | Trap::Exception(Exception::LoadFault)
+        | Trap::Exception(Exception::LoadPageFault)
+        | Trap::Exception(Exception::InstructionFault)
+        | Trap::Exception(Exception::InstructionPageFault) => {
             println!("[kernel] Page fault in application, stval = {:#x}", stval);
             TASK_MANAGER.exit_task(-1);
         }
