@@ -1,5 +1,6 @@
 use super::addr::*;
-pub trait VMObject {
+use alloc::sync::Arc;
+pub trait VMObject: Send + Sync {
     fn page_count(&self) -> usize;
     fn get_page(&self, page_index: usize) -> Option<PhysPageNum>;
 }
@@ -10,13 +11,13 @@ pub struct VMObjectPhysical {
 }
 
 impl VMObjectPhysical {
-    pub fn from_range(base: PhysAddr, end: PhysAddr) -> VMObjectPhysical {
+    pub fn from_range(base: PhysAddr, end: PhysAddr) -> Arc<VMObjectPhysical> {
         let base_page = base.floor_page_num();
         let end_page = end.ceil_page_num();
-        VMObjectPhysical {
+        Arc::new(VMObjectPhysical {
             base_page,
             page_count: usize::from(end_page) - usize::from(base_page),
-        }
+        })
     }
 }
 
