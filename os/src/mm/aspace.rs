@@ -87,20 +87,138 @@ pub fn kernel_aspace_init() {
     unsafe { sstatus::set_sum() };
     initialize(&KERNEL_ASPACE);
     println!("[kernel] setup kernel address space...");
+    // kernel address space:
+    // - MEMORY_START=BASE_ADDRESS=stext
+    // | text, RX
+    extern "C" {
+        fn stext();
+        fn etext();
+    }
+    let stext = stext as usize;
+    let etext = etext as usize;
+    println!("[kernel] map text: {:#x?}-{:#x?}", stext, etext);
     KERNEL_ASPACE.map(
-        VMObjectPhysical::from_range(PhysAddr::from(MEMORY_START), PhysAddr::from(MEMORY_END)),
+        VMObjectPhysical::from_range(PhysAddr::from(stext), PhysAddr::from(etext)),
         0,
-        VirtAddr::from(MEMORY_START).floor_page_num(),
+        VirtAddr::from(stext).floor_page_num(),
         None,
-        PTEFlags::RWX,
+        PTEFlags::R | PTEFlags::X,
     );
-    // KERNEL_ASPACE.map_range(
-    //     VirtPageNum::from(usize::from(base_ppn)),
-    //     base_ppn,
-    //     usize::from(end_ppn) - usize::from(base_ppn),
-    //     PTEFlags::RWX,
-    // );
-    // test_kernel_aspece();
+    // - etext=srodata
+    // | rodata, R
+    extern "C" {
+        fn srodata();
+        fn erodata();
+    }
+    let srodata = srodata as usize;
+    let erodata = erodata as usize;
+    println!("[kernel] map rodata: {:#x?}-{:#x?}", srodata, erodata);
+    KERNEL_ASPACE.map(
+        VMObjectPhysical::from_range(PhysAddr::from(srodata), PhysAddr::from(erodata)),
+        0,
+        VirtAddr::from(srodata).floor_page_num(),
+        None,
+        PTEFlags::R,
+    );
+    // - erodata=sdata
+    // | data, RW
+    extern "C" {
+        fn sdata();
+        fn edata();
+    }
+    let sdata = sdata as usize;
+    let edata = edata as usize;
+    println!("[kernel] map data: {:#x?}-{:#x?}", sdata, edata);
+    KERNEL_ASPACE.map(
+        VMObjectPhysical::from_range(PhysAddr::from(sdata), PhysAddr::from(edata)),
+        0,
+        VirtAddr::from(sdata).floor_page_num(),
+        None,
+        PTEFlags::R | PTEFlags::W,
+    );
+    // - edata
+    // | empty space for stack overflow protect
+    // - sstack
+    // | launch stack, RW
+    extern "C" {
+        fn sstack();
+        fn estack();
+    }
+    let sstack = sstack as usize;
+    let estack = estack as usize;
+    println!("[kernel] map stack: {:#x?}-{:#x?}", sstack, estack);
+    KERNEL_ASPACE.map(
+        VMObjectPhysical::from_range(PhysAddr::from(sstack), PhysAddr::from(estack)),
+        0,
+        VirtAddr::from(sstack).floor_page_num(),
+        None,
+        PTEFlags::R | PTEFlags::W,
+    );
+    // - estack
+    // | empty space for stack overflow protect
+    // - sbss
+    // | bss, RW and U for now(user stack)
+    // - ekernel=ebss
+    extern "C" {
+        fn sbss();
+        fn ebss();
+    }
+    let sbss = sbss as usize;
+    let ebss = ebss as usize;
+    println!("[kernel] map bss: {:#x?}-{:#x?}", sbss, ebss);
+    KERNEL_ASPACE.map(
+        VMObjectPhysical::from_range(PhysAddr::from(sbss), PhysAddr::from(ebss)),
+        0,
+        VirtAddr::from(sbss).floor_page_num(),
+        None,
+        PTEFlags::R | PTEFlags::W | PTEFlags::U,
+    );
+    // | empty space
+    // - APP_BASE_ADDRESS
+    // | app memory space, RWU
+    use crate::loader::{APP_BASE_ADDRESS, APP_SIZE_LIMIT, MAX_APP_NUM};
+    let sapp = *APP_BASE_ADDRESS;
+    let eapp = sapp + MAX_APP_NUM * (*APP_SIZE_LIMIT);
+    println!("[kernel] map app: {:#x?}-{:#x?}", sapp, eapp);
+    KERNEL_ASPACE.map(
+        VMObjectPhysical::from_range(PhysAddr::from(sapp), PhysAddr::from(eapp)),
+        0,
+        VirtAddr::from(sapp).floor_page_num(),
+        None,
+        PTEFlags::RWX | PTEFlags::U,
+    );
+    // - APP_BASE_ADDRESS+APP_SIZE_LIMIT*MAX_APP_NUM
+    // | empty space
+    // - DEBUGINFO_ELF_ADDRESS
+    // | debug_info, R
+    use crate::backtrace::{DEBUGINFO_ELF_ADDRESS, DEBUGINFO_ELF_SIZE};
+    let sdebuginfo = DEBUGINFO_ELF_ADDRESS;
+    let edebuginfo = DEBUGINFO_ELF_ADDRESS + DEBUGINFO_ELF_SIZE;
+    println!(
+        "[kernel] map debuginfo: {:#x?}-{:#x?}",
+        sdebuginfo, edebuginfo
+    );
+    KERNEL_ASPACE.map(
+        VMObjectPhysical::from_range(PhysAddr::from(sdebuginfo), PhysAddr::from(edebuginfo)),
+        0,
+        VirtAddr::from(sdebuginfo).floor_page_num(),
+        None,
+        PTEFlags::R,
+    );
+    // - DEBUGINFO_ELF_ADDRESS+DEBUGINFO_ELF_SIZE=FRAME_MEMORY_START
+    // | frame allocated mmory, RW
+    use super::frame::FRAME_MEMORY_START;
+    let sframe = FRAME_MEMORY_START;
+    let eframe = MEMORY_END;
+    println!("[kernel] map frames: {:#x?}-{:#x?}", sframe, eframe);
+    KERNEL_ASPACE.map(
+        VMObjectPhysical::from_range(PhysAddr::from(sframe), PhysAddr::from(eframe)),
+        0,
+        VirtAddr::from(sframe).floor_page_num(),
+        None,
+        PTEFlags::R | PTEFlags::W,
+    );
+    // - MEMORY_END
     println!("[kernel] paging enabling...");
     KERNEL_ASPACE.apply();
     println!("[kernel] paging enabled!");

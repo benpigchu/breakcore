@@ -1,5 +1,6 @@
 use derive_more::{From, Into};
 
+#[allow(dead_code)]
 pub const MEMORY_START: usize = 0x80000000; //128MiB
 pub const MEMORY_END: usize = 0x88000000; //128MiB
 

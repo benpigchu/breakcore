@@ -11,7 +11,7 @@ lazy_static! {
     pub static ref APP_BASE_ADDRESS: usize = option_env!("USER_BASE_ADDRESS_START")
         .and_then(|s| usize::from_str_radix(s.trim_start_matches("0x"), 16).ok())
         .unwrap_or(0x80400000);
-    static ref APP_SIZE_LIMIT: usize = option_env!("USER_BASE_ADDRESS_STEP")
+    pub static ref APP_SIZE_LIMIT: usize = option_env!("USER_BASE_ADDRESS_STEP")
         .and_then(|s| usize::from_str_radix(s.trim_start_matches("0x"), 16).ok())
         .unwrap_or(0x00020000);
 }
@@ -25,9 +25,11 @@ struct UserStack {
     data: [u8; USER_STACK_SIZE],
 }
 
+#[link_section = ".bss"]
 static KERNEL_STACK: [KernelStack; MAX_APP_NUM] = [KernelStack {
     data: [0; KERNEL_STACK_SIZE],
 }; MAX_APP_NUM];
+#[link_section = ".bss"]
 static USER_STACK: [UserStack; MAX_APP_NUM] = [UserStack {
     data: [0; USER_STACK_SIZE],
 }; MAX_APP_NUM];

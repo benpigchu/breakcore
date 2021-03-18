@@ -29,7 +29,14 @@ SECTIONS
     . = ALIGN(4K);
     edata = .;
     .bss : {
+        . += 0x1000;
+        . = ALIGN(4K);
+        sstack = .;
         *(.bss.stack)
+        . = ALIGN(4K);
+        estack = .;
+        . += 0x1000;
+        . = ALIGN(4K);
         sbss = .;
         *(.bss .bss.*)
     }
