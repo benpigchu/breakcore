@@ -59,7 +59,7 @@ __restore:
 	# move to new kernel stack
 	# the new kernel stack is either return value of trap_handler
 	# where the kernel stack do not change
-	# or manually called by __switch to spawn new process
+	# or manually called by launch to spawn new process
 	# load sstatus
 	ld t0, 32*8(sp)
 	csrw sstatus, t0

@@ -12,11 +12,9 @@ pub struct TaskContext {
 
 impl TaskContext {
     pub fn goto_launch() -> Self {
-        extern "C" {
-            fn __restore();
-        }
+        use crate::trap::launch;
         Self {
-            ra: __restore as usize,
+            ra: launch as usize,
             s: [0; 12],
         }
     }

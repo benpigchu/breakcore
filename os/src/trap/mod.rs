@@ -17,13 +17,13 @@ pub fn init() {
     unsafe {
         sstatus::set_spie();
     }
-    set_user_trap_entry()
+    set_kernel_trap_entry()
 }
 
 #[allow(dead_code)]
 fn set_kernel_trap_entry() {
     unsafe {
-        stvec::write(TRAMPOLINE_BASE_VPN.addr().into(), TrapMode::Direct);
+        stvec::write(trap_from_kernel as usize, TrapMode::Direct);
     }
 }
 
@@ -34,7 +34,9 @@ fn set_user_trap_entry() {
 }
 
 #[no_mangle]
-extern "C" fn trap_handler(cx: *mut TrapContext) -> *mut TrapContext {
+extern "C" fn trap_handler(cx: *mut TrapContext) {
+    set_kernel_trap_entry();
+
     let cx = unsafe { cx.as_mut().unwrap() };
     let scause = scause::read();
     let stval = stval::read();
@@ -68,10 +70,29 @@ extern "C" fn trap_handler(cx: *mut TrapContext) -> *mut TrapContext {
             panic!("Unsupported trap {:?}, stval = {:#x}!", cause, stval);
         }
     }
-    cx as *mut _
+    set_user_trap_entry();
 }
 
 #[no_mangle]
 pub fn trap_from_kernel() -> ! {
-    panic!("Trap from kernel!");
+    println!("Trap from kernel!");
+    #[allow(clippy::empty_loop)]
+    loop {}
+}
+
+// Used
+#[no_mangle]
+pub extern "C" fn launch() {
+    set_user_trap_entry();
+    extern "C" {
+        fn __alltraps();
+        fn __restore();
+    }
+    let alltraps_va: usize = TRAMPOLINE_BASE_VPN.addr().into();
+    let restore_va = alltraps_va - __alltraps as usize + __restore as usize;
+    unsafe {
+        // overwrite on stack return address
+        llvm_asm!("sd $0, -8(fp)" :: "r"(restore_va) :: "volatile");
+    }
+    // normally return, since we overwrote return address
 }

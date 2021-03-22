@@ -55,8 +55,8 @@ fn clear_bss() {
         fn sbss();
         fn ebss();
     }
+    println!("[kernel] bss: {:#x?}-{:#x?}", sbss as usize, ebss as usize);
     for addr in (sbss as usize)..(ebss as usize) {
         unsafe { (addr as *mut u8).write_volatile(0) }
     }
-    println!("[kernel] bss: {:#x?}-{:#x?}", sbss as usize, ebss as usize);
 }
