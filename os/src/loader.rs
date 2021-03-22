@@ -1,4 +1,10 @@
-use crate::{task::TaskContext, trap::context::TrapContext};
+use crate::mm::addr::*;
+use crate::mm::aspace::{AddressSpace, TRAMPOLINE_BASE_VPN};
+use crate::mm::vmo::{VMObjectPhysical, TRAMPOLINE};
+use crate::mm::PTEFlags;
+use crate::task::TaskContext;
+use crate::trap::context::TrapContext;
+use alloc::sync::Arc;
 use core::slice;
 use lazy_static::*;
 
@@ -61,7 +67,7 @@ impl UserStack {
 pub fn init_stack(id: usize) -> usize {
     KERNEL_STACK[id].push_context(
         TrapContext::new(app_base_address(id), USER_STACK[id].get_sp()),
-        TaskContext::goto_restore(),
+        TaskContext::goto_launch(),
     )
 }
 
@@ -111,7 +117,7 @@ impl AppManager {
         println!("[kernel] APP_BASE_ADDRESS: {:#x?}", *APP_BASE_ADDRESS);
         println!("[kernel] APP_SIZE_LIMIT: {:#x?}", *APP_SIZE_LIMIT);
     }
-    pub fn load_app(&self, id: usize) {
+    pub fn load_app(&self, id: usize) -> LoadedApp {
         let (app_start_address, app_end_address) = self.app_span[id];
         let app_bin = unsafe {
             slice::from_raw_parts(
@@ -119,9 +125,10 @@ impl AppManager {
                 app_end_address - app_start_address,
             )
         };
-        println!("[kernel] base_addr: {:#x?}", app_base_address(id));
-        let app_dest =
-            unsafe { slice::from_raw_parts_mut(app_base_address(id) as *mut u8, *APP_SIZE_LIMIT) };
+        let sapp = app_base_address(id);
+        let eapp = app_base_address(id) + (*APP_SIZE_LIMIT);
+        println!("[kernel] base_addr: {:#x?}", sapp);
+        let app_dest = unsafe { slice::from_raw_parts_mut(sapp as *mut u8, *APP_SIZE_LIMIT) };
         app_dest.fill(0);
         app_dest
             .get_mut(0..app_bin.len())
@@ -130,5 +137,42 @@ impl AppManager {
         unsafe {
             llvm_asm!("fence.i" :::: "volatile");
         }
+        let aspace = AddressSpace::new();
+        // map user app
+        aspace.map(
+            VMObjectPhysical::from_range(PhysAddr::from(sapp), PhysAddr::from(eapp)),
+            0,
+            VirtAddr::from(sapp).floor_page_num(),
+            None,
+            PTEFlags::RWX | PTEFlags::U,
+        );
+        // map user stack
+        let sstack = USER_STACK[id].data.as_ptr() as usize;
+        let estack = sstack + USER_STACK_SIZE;
+        aspace.map(
+            VMObjectPhysical::from_range(PhysAddr::from(sstack), PhysAddr::from(estack)),
+            0,
+            VirtAddr::from(sstack).floor_page_num(),
+            None,
+            PTEFlags::R | PTEFlags::W | PTEFlags::U,
+        );
+        // map trampoline
+        aspace.map(
+            TRAMPOLINE.clone(),
+            0,
+            *TRAMPOLINE_BASE_VPN,
+            None,
+            PTEFlags::R | PTEFlags::X,
+        );
+        // map kernel stack
+        LoadedApp {
+            aspace,
+            kernel_sp: init_stack(id),
+        }
     }
+}
+
+pub struct LoadedApp {
+    pub aspace: Arc<AddressSpace>,
+    pub kernel_sp: usize,
 }

@@ -1,5 +1,6 @@
 use super::addr::*;
 use alloc::sync::Arc;
+use lazy_static::lazy_static;
 pub trait VMObject: Send + Sync {
     fn page_count(&self) -> usize;
     fn get_page(&self, page_index: usize) -> Option<PhysPageNum>;
@@ -31,4 +32,14 @@ impl VMObject for VMObjectPhysical {
         }
         Some((usize::from(self.base_page) + page_index).into())
     }
+}
+
+lazy_static! {
+    pub static ref TRAMPOLINE: Arc<VMObjectPhysical> = {
+        extern "C" {
+            fn strampoline();
+            fn etrampoline();
+        }
+        VMObjectPhysical::from_range((strampoline as usize).into(), (etrampoline as usize).into())
+    };
 }

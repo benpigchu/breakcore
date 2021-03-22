@@ -11,7 +11,7 @@ pub struct TaskContext {
 }
 
 impl TaskContext {
-    pub fn goto_restore() -> Self {
+    pub fn goto_launch() -> Self {
         extern "C" {
             fn __restore();
         }

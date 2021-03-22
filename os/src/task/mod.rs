@@ -1,7 +1,9 @@
 use crate::loader::*;
+use crate::mm::aspace::AddressSpace;
 use crate::sbi::shutdown;
-use core::cell::RefCell;
+use alloc::sync::Arc;
 use lazy_static::*;
+use spin::Mutex;
 
 mod context;
 pub use context::*;
@@ -17,6 +19,7 @@ pub enum TaskStatus {
 struct Task {
     kernel_sp: usize,
     status: TaskStatus,
+    aspace: Option<Arc<AddressSpace>>,
 }
 
 impl Task {
@@ -27,7 +30,7 @@ impl Task {
 
 pub struct TaskManager {
     app_num: usize,
-    inner: RefCell<TaskManagerInner>,
+    inner: Mutex<TaskManagerInner>,
 }
 pub struct TaskManagerInner {
     current: usize,
@@ -39,11 +42,12 @@ unsafe impl Sync for TaskManager {}
 lazy_static! {
     pub static ref TASK_MANAGER: TaskManager = TaskManager {
         app_num: APP_MANAGER.app_num,
-        inner: RefCell::new(TaskManagerInner {
+        inner: Mutex::new(TaskManagerInner {
             current: 0,
             tasks: [Task {
                 kernel_sp: 0,
-                status: TaskStatus::UnInit
+                status: TaskStatus::UnInit,
+                aspace: None
             }; MAX_APP_NUM]
         }),
     };
@@ -51,7 +55,7 @@ lazy_static! {
 
 impl TaskManager {
     pub fn launch_first_task(&self) -> ! {
-        let mut inner = self.inner.borrow_mut();
+        let mut inner = self.inner.lock();
         inner.init_task(0);
         let next_kernel_sp_ptr = inner.tasks[0].get_kernel_sp_ptr();
         let current_kernel_sp = 0usize;
@@ -68,7 +72,7 @@ impl TaskManager {
         if current == next {
             return;
         }
-        let inner = self.inner.borrow();
+        let inner = self.inner.lock();
         let current_kernel_sp_ptr = inner.tasks[current].get_kernel_sp_ptr();
         let next_kernel_sp_ptr = inner.tasks[next].get_kernel_sp_ptr();
         drop(inner);
@@ -78,7 +82,7 @@ impl TaskManager {
     }
 
     fn find_next_task(&self) -> Option<usize> {
-        let inner = self.inner.borrow();
+        let inner = self.inner.lock();
         for i in 0..self.app_num {
             let id = (i + inner.current + 1) % self.app_num;
             if matches!(
@@ -93,7 +97,7 @@ impl TaskManager {
 
     pub fn switch_task(&self) {
         if let Some(next) = self.find_next_task() {
-            let mut inner = self.inner.borrow_mut();
+            let mut inner = self.inner.lock();
             let current = inner.current;
             inner.current = next;
             if inner.tasks[current].status == TaskStatus::Running {
@@ -112,7 +116,7 @@ impl TaskManager {
     }
 
     pub fn exit_task(&self, exit_code: i32) -> ! {
-        let mut inner = self.inner.borrow_mut();
+        let mut inner = self.inner.lock();
         let current = inner.current;
         println!(
             "[kernel] user program {} exited, code: {:#x?}",
@@ -128,7 +132,8 @@ impl TaskManager {
 impl TaskManagerInner {
     fn init_task(&mut self, id: usize) {
         println!("[kernel] load app: {}", id);
-        APP_MANAGER.load_app(id);
-        self.tasks[id].kernel_sp = init_stack(id)
+        let loaded_app = APP_MANAGER.load_app(id);
+        self.tasks[id].kernel_sp = loaded_app.kernel_sp;
+        self.tasks[id].aspace = Some(loaded_app.aspace)
     }
 }

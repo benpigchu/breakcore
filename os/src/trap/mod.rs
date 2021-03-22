@@ -1,5 +1,7 @@
 pub mod context;
 
+use crate::mm::addr::*;
+use crate::mm::aspace::TRAMPOLINE_BASE_VPN;
 use crate::task::TASK_MANAGER;
 use crate::{syscall::syscall, timer};
 use context::TrapContext;
@@ -15,11 +17,19 @@ pub fn init() {
     unsafe {
         sstatus::set_spie();
     }
-    extern "C" {
-        fn __alltraps();
-    }
+    set_user_trap_entry()
+}
+
+#[allow(dead_code)]
+fn set_kernel_trap_entry() {
     unsafe {
-        stvec::write(__alltraps as usize, TrapMode::Direct);
+        stvec::write(TRAMPOLINE_BASE_VPN.addr().into(), TrapMode::Direct);
+    }
+}
+
+fn set_user_trap_entry() {
+    unsafe {
+        stvec::write(TRAMPOLINE_BASE_VPN.addr().into(), TrapMode::Direct);
     }
 }
 
@@ -59,4 +69,9 @@ extern "C" fn trap_handler(cx: *mut TrapContext) -> *mut TrapContext {
         }
     }
     cx as *mut _
+}
+
+#[no_mangle]
+pub fn trap_from_kernel() -> ! {
+    panic!("Trap from kernel!");
 }

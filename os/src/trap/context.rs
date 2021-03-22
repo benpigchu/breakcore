@@ -1,10 +1,13 @@
 use riscv::register::sstatus::{self, Sstatus, SPP};
+
+use super::trap_handler;
 #[repr(C)]
 #[derive(Debug)]
 pub struct TrapContext {
     pub x: [usize; 32],
     pub sstatus: Sstatus,
     pub sepc: usize,
+    pub trap_handler_address: usize,
 }
 
 impl TrapContext {
@@ -18,6 +21,7 @@ impl TrapContext {
             x: [0; 32],
             sstatus,
             sepc: pc,
+            trap_handler_address: trap_handler as usize,
         };
         cx.set_sp(sp);
         cx

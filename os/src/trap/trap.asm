@@ -1,5 +1,5 @@
 
-    .section .text
+    .section .text.trampoline
     .globl __alltraps
     .globl __restore
     .align 2
@@ -7,7 +7,7 @@ __alltraps:
 	# move to kernel stack
     csrrw sp, sscratch, sp
 	# allocate TrapContext
-	addi sp, sp, -34*8
+	addi sp, sp, -35*8
 	# save x1 & x3~x31
 	sd x1, 1*8(sp)
 	# x2(sp) will be saved later
@@ -50,9 +50,11 @@ __alltraps:
     csrr t2, sscratch
     sd t2, 2*8(sp)
 	# sp now point to TrapContext,
+	# load trap_handler address
+    ld x6, 34*8(sp)
 	# call trap_handler with it as param
     mv a0, sp
-	call trap_handler
+	jalr x6
 __restore:
 	# move to new kernel stack
 	# the new kernel stack is either return value of trap_handler
@@ -100,7 +102,7 @@ __restore:
 	ld x30, 30*8(sp)
 	ld x31, 31*8(sp)
 	# release TrapContext
-	addi sp, sp, 34*8
+	addi sp, sp, 35*8
 	# switch user/kernel stack
 	csrrw sp, sscratch, sp
     sret

@@ -2,11 +2,22 @@ use lazy_static::{initialize, lazy_static};
 
 use super::addr::*;
 use super::page_table::{PTEFlags, PageTable};
-use super::vmo::{VMObject, VMObjectPhysical};
+use super::vmo::{VMObject, VMObjectPhysical, TRAMPOLINE};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use riscv::register::{satp, sstatus};
 use spin::Mutex;
+
+lazy_static! {
+    pub static ref TRAMPOLINE_BASE_VPN: VirtPageNum = {
+        extern "C" {
+            fn strampoline();
+            fn etrampoline();
+        }
+        VirtAddr::from(0usize.wrapping_sub(etrampoline as usize - strampoline as usize))
+            .floor_page_num()
+    };
+}
 
 #[allow(dead_code)]
 struct VMMapping {
@@ -55,7 +66,6 @@ impl AddressSpace {
         flags: PTEFlags,
     ) -> Option<()> {
         let mut inner = self.inner.lock();
-        let mut page_table = self.page_table.lock();
         let page_count = page_count.unwrap_or_else(|| vmo.page_count() - vmo_page_offset);
         if vmo_page_offset + page_count > vmo.page_count() {
             return None;
@@ -67,6 +77,7 @@ impl AddressSpace {
             vmo_page_offset,
             vmo: vmo.clone(),
         }));
+        let mut page_table = self.page_table.lock();
         for i in 0..page_count {
             page_table.map(
                 (usize::from(base_vpn) + i).into(),
@@ -219,15 +230,16 @@ pub fn kernel_aspace_init() {
         PTEFlags::R | PTEFlags::W,
     );
     // - MEMORY_END
+
+    // the trampoline should be special mapped to enable address space sawpping
+    KERNEL_ASPACE.map(
+        TRAMPOLINE.clone(),
+        0,
+        *TRAMPOLINE_BASE_VPN,
+        None,
+        PTEFlags::R | PTEFlags::X,
+    );
     println!("[kernel] paging enabling...");
     KERNEL_ASPACE.apply();
     println!("[kernel] paging enabled!");
 }
-
-// fn test_kernel_aspece() {
-//     // A simple test of a page in the memory is mapped
-//     let vpn = VirtAddr::from((MEMORY_START + MEMORY_END) / 2).floor_page_num();
-//     let entry = KERNEL_ASPACE.page_table.lock().query(vpn).unwrap();
-//     assert!(entry.valid());
-//     assert_eq!(usize::from(entry.ppn()), usize::from(vpn));
-// }
