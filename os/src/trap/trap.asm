@@ -2,7 +2,7 @@
     .section .text.trampoline
     .globl __alltraps
     .globl __restore
-    .align 2
+    .align 4
 __alltraps:
 	# move to kernel stack
     csrrw sp, sscratch, sp
@@ -106,3 +106,6 @@ __restore:
 	# switch user/kernel stack
 	csrrw sp, sscratch, sp
     sret
+    .align 4
+__ktraps:
+	j trap_from_kernel

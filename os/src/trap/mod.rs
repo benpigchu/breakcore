@@ -22,8 +22,11 @@ pub fn init() {
 
 #[allow(dead_code)]
 fn set_kernel_trap_entry() {
+    extern "C" {
+        fn __ktraps();
+    }
     unsafe {
-        stvec::write(trap_from_kernel as usize, TrapMode::Direct);
+        stvec::write(__ktraps as usize, TrapMode::Direct);
     }
 }
 
@@ -75,9 +78,7 @@ extern "C" fn trap_handler(cx: *mut TrapContext) {
 
 #[no_mangle]
 pub fn trap_from_kernel() -> ! {
-    println!("Trap from kernel!");
-    #[allow(clippy::empty_loop)]
-    loop {}
+    panic!("Trap from kernel!");
 }
 
 // Used
