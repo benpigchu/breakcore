@@ -7,7 +7,7 @@ __alltraps:
 	# move to kernel stack
     csrrw sp, sscratch, sp
 	# allocate TrapContext
-	addi sp, sp, -35*8
+	addi sp, sp, -39*8
 	# save x1 & x3~x31
 	sd x1, 1*8(sp)
 	# x2(sp) will be saved later
@@ -49,17 +49,31 @@ __alltraps:
 	# save sp from sscratch
     csrr t2, sscratch
     sd t2, 2*8(sp)
-	# sp now point to TrapContext,
+	# sp now point to TrapContext
+	# load kernel satp
+	ld t0, 36*8(sp)
+	# load kernel space TrapContext address
+	ld sp, 38*8(sp)
+	# switch to kernel space
+	csrw satp, t0
+	sfence.vma
 	# load trap_handler address
     ld x6, 34*8(sp)
-	# call trap_handler with it as param
+	# call trap_handler with TrapContext as param
     mv a0, sp
 	jalr x6
 __restore:
-	# move to new kernel stack
+	# moved to new kernel stack
 	# the new kernel stack is either return value of trap_handler
 	# where the kernel stack do not change
 	# or manually called by launch to spawn new process
+	# load user satp
+	ld t0, 35*8(sp)
+	# load user space TrapContext address
+	ld sp, 37*8(sp)
+	# switch to user space
+	csrw satp, t0
+	sfence.vma
 	# load sstatus
 	ld t0, 32*8(sp)
 	csrw sstatus, t0
@@ -102,7 +116,7 @@ __restore:
 	ld x30, 30*8(sp)
 	ld x31, 31*8(sp)
 	# release TrapContext
-	addi sp, sp, 35*8
+	addi sp, sp, 39*8
 	# switch user/kernel stack
 	csrrw sp, sscratch, sp
     sret

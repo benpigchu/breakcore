@@ -1,5 +1,5 @@
 use crate::mm::addr::*;
-use crate::mm::aspace::{AddressSpace, TRAMPOLINE_BASE_VPN};
+use crate::mm::aspace::{AddressSpace, KSTACK_BASE_VPN, TRAMPOLINE_BASE_VPN};
 use crate::mm::vmo::{VMObjectPhysical, TRAMPOLINE};
 use crate::mm::PTEFlags;
 use crate::task::TaskContext;
@@ -10,8 +10,8 @@ use lazy_static::*;
 
 global_asm!(include_str!("embed_app.asm"));
 
-const USER_STACK_SIZE: usize = 4096 * 2;
-const KERNEL_STACK_SIZE: usize = 4096 * 2;
+pub const USER_STACK_SIZE: usize = 4096 * 2;
+pub const KERNEL_STACK_SIZE: usize = 4096 * 2;
 pub const MAX_APP_NUM: usize = 16;
 lazy_static! {
     pub static ref APP_BASE_ADDRESS: usize = option_env!("USER_BASE_ADDRESS_START")
@@ -64,9 +64,14 @@ impl UserStack {
     }
 }
 
-pub fn init_stack(id: usize) -> usize {
+pub fn init_stack(id: usize, user_satp: usize) -> usize {
     KERNEL_STACK[id].push_context(
-        TrapContext::new(app_base_address(id), USER_STACK[id].get_sp()),
+        TrapContext::new(
+            app_base_address(id),
+            USER_STACK[id].get_sp(),
+            user_satp,
+            KERNEL_STACK[id].get_sp(),
+        ),
         TaskContext::goto_launch(),
     )
 }
@@ -165,9 +170,19 @@ impl AppManager {
             PTEFlags::R | PTEFlags::X,
         );
         // map kernel stack
+        let skstack = KERNEL_STACK[id].data.as_ptr() as usize;
+        let ekstack = skstack + USER_STACK_SIZE;
+        aspace.map(
+            VMObjectPhysical::from_range(PhysAddr::from(skstack), PhysAddr::from(ekstack)),
+            0,
+            *KSTACK_BASE_VPN,
+            None,
+            PTEFlags::R | PTEFlags::W,
+        );
+        let token = aspace.token();
         LoadedApp {
             aspace,
-            kernel_sp: init_stack(id),
+            kernel_sp: init_stack(id, token),
         }
     }
 }

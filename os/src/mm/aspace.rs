@@ -17,6 +17,11 @@ lazy_static! {
         VirtAddr::from(0usize.wrapping_sub(etrampoline as usize - strampoline as usize))
             .floor_page_num()
     };
+    pub static ref KSTACK_BASE_VPN: VirtPageNum = {
+        use crate::loader::KERNEL_STACK_SIZE;
+        let trampoline_va: usize = TRAMPOLINE_BASE_VPN.addr().into();
+        VirtAddr::from(trampoline_va - PAGE_SIZE - KERNEL_STACK_SIZE).floor_page_num()
+    };
 }
 
 #[allow(dead_code)]
