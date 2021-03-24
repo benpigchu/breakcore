@@ -1,5 +1,7 @@
 use super::addr::*;
+use super::frame::Frame;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use lazy_static::lazy_static;
 pub trait VMObject: Send + Sync {
     fn page_count(&self) -> usize;
@@ -42,4 +44,27 @@ lazy_static! {
         }
         VMObjectPhysical::from_range((strampoline as usize).into(), (etrampoline as usize).into())
     };
+}
+
+#[allow(dead_code)]
+pub struct VMObjectPaged {
+    frames: Vec<Frame>,
+}
+
+impl VMObjectPaged {
+    pub fn new(page_count: usize) -> Self {
+        let mut frames = Vec::with_capacity(page_count);
+        for _ in 0..page_count {
+            frames.push(Frame::alloc_zeroes().unwrap())
+        }
+        Self { frames }
+    }
+}
+impl VMObject for VMObjectPaged {
+    fn page_count(&self) -> usize {
+        self.frames.len()
+    }
+    fn get_page(&self, page_index: usize) -> Option<PhysPageNum> {
+        self.frames.get(page_index).map(|f| f.ppn())
+    }
 }
