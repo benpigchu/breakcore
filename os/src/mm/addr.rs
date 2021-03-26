@@ -8,6 +8,10 @@ pub const PAGE_SIZE: usize = 0x1000;
 #[allow(dead_code)]
 pub const PAGE_SIZE_LOG2: usize = 12;
 
+pub fn page_count(size: usize) -> usize {
+    size / PAGE_SIZE + if size % PAGE_SIZE == 0 { 0 } else { 1 }
+}
+
 #[derive(Copy, Clone, Debug, From, Into, Ord, PartialOrd, Eq, PartialEq)]
 pub struct PhysAddr(pub usize);
 

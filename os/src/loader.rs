@@ -1,6 +1,6 @@
 use crate::mm::addr::*;
-use crate::mm::aspace::{AddressSpace, KSTACK_BASE_VPN, TRAMPOLINE_BASE_VPN};
-use crate::mm::vmo::{VMObjectPhysical, TRAMPOLINE};
+use crate::mm::aspace::{AddressSpace, KERNEL_ASPACE, KSTACK_BASE_VPN, TRAMPOLINE_BASE_VPN};
+use crate::mm::vmo::{VMObjectPaged, VMObjectPhysical, TRAMPOLINE};
 use crate::mm::PTEFlags;
 use crate::task::TaskContext;
 use crate::trap::context::TrapContext;
@@ -32,10 +32,6 @@ struct UserStack {
 }
 
 #[link_section = ".bss"]
-static KERNEL_STACK: [KernelStack; MAX_APP_NUM] = [KernelStack {
-    data: [0; KERNEL_STACK_SIZE],
-}; MAX_APP_NUM];
-#[link_section = ".bss"]
 static USER_STACK: [UserStack; MAX_APP_NUM] = [UserStack {
     data: [0; USER_STACK_SIZE],
 }; MAX_APP_NUM];
@@ -64,14 +60,9 @@ impl UserStack {
     }
 }
 
-pub fn init_stack(id: usize, user_satp: usize) -> usize {
-    KERNEL_STACK[id].push_context(
-        TrapContext::new(
-            app_base_address(id),
-            USER_STACK[id].get_sp(),
-            user_satp,
-            KERNEL_STACK[id].get_sp(),
-        ),
+fn init_stack(kstack: &mut KernelStack, ustack: &UserStack, pc: usize, user_satp: usize) -> usize {
+    kstack.push_context(
+        TrapContext::new(pc, ustack.get_sp(), user_satp, kstack.get_sp()),
         TaskContext::goto_launch(),
     )
 }
@@ -170,19 +161,28 @@ impl AppManager {
             PTEFlags::R | PTEFlags::X,
         );
         // map kernel stack
-        let skstack = KERNEL_STACK[id].data.as_ptr() as usize;
-        let ekstack = skstack + USER_STACK_SIZE;
+        let kstack_vmo = VMObjectPaged::new(page_count(KERNEL_STACK_SIZE));
         aspace.map(
-            VMObjectPhysical::from_range(PhysAddr::from(skstack), PhysAddr::from(ekstack)),
+            kstack_vmo.clone(),
             0,
             *KSTACK_BASE_VPN,
             None,
             PTEFlags::R | PTEFlags::W,
         );
+        let vskstack =
+            usize::from(TRAMPOLINE_BASE_VPN.addr()) - (KERNEL_STACK_SIZE + PAGE_SIZE) * (id + 1);
+        KERNEL_ASPACE.map(
+            kstack_vmo,
+            0,
+            VirtAddr::from(vskstack).floor_page_num(),
+            None,
+            PTEFlags::R | PTEFlags::W,
+        );
+        let kstack = unsafe { (vskstack as *mut KernelStack).as_mut().unwrap() };
         let token = aspace.token();
         LoadedApp {
             aspace,
-            kernel_sp: init_stack(id, token),
+            kernel_sp: init_stack(kstack, &USER_STACK[id], app_base_address(id), token),
         }
     }
 }
