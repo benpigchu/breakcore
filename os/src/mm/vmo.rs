@@ -2,10 +2,13 @@ use super::addr::*;
 use super::frame::Frame;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use core::slice;
 use lazy_static::lazy_static;
 pub trait VMObject: Send + Sync {
     fn page_count(&self) -> usize;
     fn get_page(&self, page_index: usize) -> Option<PhysPageNum>;
+    fn read(&self, offset: usize, buf: &mut [u8]) -> usize;
+    fn write(&self, offset: usize, buf: &[u8]) -> usize;
 }
 
 pub struct VMObjectPhysical {
@@ -33,6 +36,36 @@ impl VMObject for VMObjectPhysical {
             return None;
         }
         Some((usize::from(self.base_page) + page_index).into())
+    }
+    fn read(&self, offset: usize, buf: &mut [u8]) -> usize {
+        let limit = self.page_count() * PAGE_SIZE;
+        if offset > limit {
+            return 0;
+        }
+        let len = usize::min(buf.len(), limit - offset);
+        let slice = unsafe {
+            slice::from_raw_parts(
+                (usize::from(self.base_page.addr()) + offset) as *const u8,
+                len,
+            )
+        };
+        buf[..len].copy_from_slice(slice);
+        len
+    }
+    fn write(&self, offset: usize, buf: &[u8]) -> usize {
+        let limit = self.page_count() * PAGE_SIZE;
+        if offset > limit {
+            return 0;
+        }
+        let len = usize::min(buf.len(), limit - offset);
+        let slice = unsafe {
+            slice::from_raw_parts_mut(
+                (usize::from(self.base_page.addr()) + offset) as *mut u8,
+                len,
+            )
+        };
+        slice.copy_from_slice(&buf[..len]);
+        len
     }
 }
 
@@ -66,5 +99,43 @@ impl VMObject for VMObjectPaged {
     }
     fn get_page(&self, page_index: usize) -> Option<PhysPageNum> {
         self.frames.get(page_index).map(|f| f.ppn())
+    }
+    fn read(&self, offset: usize, buf: &mut [u8]) -> usize {
+        let limit = self.page_count() * PAGE_SIZE;
+        if offset > limit {
+            return 0;
+        }
+        let len = usize::min(buf.len(), limit - offset);
+        let start_page = offset / PAGE_SIZE;
+        let mut current_page = start_page;
+        let mut progress = 0usize;
+        while progress < len {
+            let start = current_page * PAGE_SIZE - offset - progress;
+            let end = usize::min(len - progress, PAGE_SIZE);
+            let target = progress + (end - start);
+            buf[progress..target].copy_from_slice(&self.frames[current_page].content()[start..end]);
+            progress = target;
+            current_page += 1;
+        }
+        len
+    }
+    fn write(&self, offset: usize, buf: &[u8]) -> usize {
+        let limit = self.page_count() * PAGE_SIZE;
+        if offset > limit {
+            return 0;
+        }
+        let len = usize::min(buf.len(), limit - offset);
+        let start_page = offset / PAGE_SIZE;
+        let mut current_page = start_page;
+        let mut progress = 0usize;
+        while progress < len {
+            let start = current_page * PAGE_SIZE - offset - progress;
+            let end = usize::min(len - progress, PAGE_SIZE);
+            let target = progress + (end - start);
+            self.frames[current_page].content()[start..end].copy_from_slice(&buf[progress..target]);
+            progress = target;
+            current_page += 1;
+        }
+        len
     }
 }

@@ -12,15 +12,7 @@ pub struct Frame {
 impl Frame {
     pub fn alloc_zeroes() -> Option<Self> {
         Self::alloc_uninitialized().map(|frame| {
-            unsafe {
-                frame
-                    .ppn
-                    .addr()
-                    .get_mut::<[u8; PAGE_SIZE]>()
-                    .as_mut()
-                    .unwrap()
-                    .fill(0)
-            };
+            frame.content().fill(0);
             frame
         })
     }
@@ -31,6 +23,15 @@ impl Frame {
     }
     pub fn ppn(&self) -> PhysPageNum {
         self.ppn
+    }
+    pub fn content(&self) -> &mut [u8; PAGE_SIZE] {
+        unsafe {
+            self.ppn
+                .addr()
+                .get_mut::<[u8; PAGE_SIZE]>()
+                .as_mut()
+                .unwrap()
+        }
     }
     pub fn manually_drop(ppn: PhysPageNum) {
         FRAME_ALLOCATOR.lock().dealloc(ppn)

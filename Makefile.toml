@@ -79,6 +79,7 @@ do
 		--strip-all -O binary \
 		$bin
 	cp $bin $dest_bin
+	cp $elf $dest_elf
 done
 '''
 dependencies = ["build-user"]

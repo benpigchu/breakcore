@@ -43,6 +43,20 @@ struct AddressSpaceInner {
     mappings: Vec<Arc<VMMapping>>,
 }
 
+impl AddressSpaceInner {
+    fn find_mapping(&self, vaddr: VirtAddr) -> Option<&Arc<VMMapping>> {
+        let page = vaddr.floor_page_num();
+        for mapping in &self.mappings {
+            if (page >= mapping.base_vpn)
+                && (usize::from(page) < usize::from(mapping.base_vpn) + mapping.page_count)
+            {
+                return Some(mapping);
+            }
+        }
+        None
+    }
+}
+
 impl AddressSpace {
     pub fn new() -> Arc<Self> {
         Arc::new(Self {
@@ -75,6 +89,14 @@ impl AddressSpace {
         if vmo_page_offset + page_count > vmo.page_count() {
             return None;
         }
+        // check for overlapping mapping
+        for mapping in &inner.mappings {
+            if (usize::from(mapping.base_vpn) < usize::from(base_vpn) + page_count)
+                && (usize::from(base_vpn) < usize::from(mapping.base_vpn) + mapping.page_count)
+            {
+                return None;
+            }
+        }
         inner.mappings.push(Arc::new(VMMapping {
             flags,
             base_vpn,
@@ -91,6 +113,50 @@ impl AddressSpace {
             )
         }
         Some(())
+    }
+    pub fn read(&self, vaddr: VirtAddr, buf: &mut [u8]) -> usize {
+        let mut inner = self.inner.lock();
+        let mut progress = 0;
+        while progress < buf.len() {
+            let pos = VirtAddr::from(usize::from(vaddr) + progress);
+            let mapping = match inner.find_mapping(pos) {
+                Some(mapping) => mapping,
+                None => break,
+            };
+            let start = usize::from(pos) - usize::from(mapping.base_vpn.addr());
+            let end = usize::min(buf.len() - progress, mapping.page_count * PAGE_SIZE);
+            let target = progress + (end - start);
+            progress += mapping.vmo.read(
+                mapping.vmo_page_offset * PAGE_SIZE + start,
+                &mut buf[progress..target],
+            );
+            if progress < target {
+                break;
+            }
+        }
+        progress
+    }
+    pub fn write(&self, vaddr: VirtAddr, buf: &[u8]) -> usize {
+        let mut inner = self.inner.lock();
+        let mut progress = 0;
+        while progress < buf.len() {
+            let pos = VirtAddr::from(usize::from(vaddr) + progress);
+            let mapping = match inner.find_mapping(pos) {
+                Some(mapping) => mapping,
+                None => break,
+            };
+            let start = usize::from(pos) - usize::from(mapping.base_vpn.addr());
+            let end = usize::min(buf.len() - progress, mapping.page_count * PAGE_SIZE);
+            let target = progress + (end - start);
+            progress += mapping.vmo.write(
+                mapping.vmo_page_offset * PAGE_SIZE + start,
+                &buf[progress..target],
+            );
+            if progress < target {
+                break;
+            }
+        }
+        progress
     }
 }
 
