@@ -127,6 +127,14 @@ impl TaskManager {
         self.switch_task();
         unreachable!("We should not switch back to exited task!");
     }
+
+    pub fn current_aspace(&self) -> Option<Arc<AddressSpace>> {
+        let inner = self.inner.lock();
+        inner.tasks[inner.current]
+            .aspace
+            .as_ref()
+            .map(|aspace| aspace.clone())
+    }
 }
 
 impl TaskManagerInner {

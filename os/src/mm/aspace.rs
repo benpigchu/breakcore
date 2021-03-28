@@ -115,7 +115,7 @@ impl AddressSpace {
         Some(())
     }
     pub fn read(&self, vaddr: VirtAddr, buf: &mut [u8]) -> usize {
-        let mut inner = self.inner.lock();
+        let inner = self.inner.lock();
         let mut progress = 0;
         while progress < buf.len() {
             let pos = VirtAddr::from(usize::from(vaddr) + progress);
@@ -124,7 +124,7 @@ impl AddressSpace {
                 None => break,
             };
             let start = usize::from(pos) - usize::from(mapping.base_vpn.addr());
-            let end = usize::min(buf.len() - progress, mapping.page_count * PAGE_SIZE);
+            let end = usize::min(buf.len() - progress + start, mapping.page_count * PAGE_SIZE);
             let target = progress + (end - start);
             progress += mapping.vmo.read(
                 mapping.vmo_page_offset * PAGE_SIZE + start,
@@ -136,8 +136,9 @@ impl AddressSpace {
         }
         progress
     }
+    #[allow(dead_code)]
     pub fn write(&self, vaddr: VirtAddr, buf: &[u8]) -> usize {
-        let mut inner = self.inner.lock();
+        let inner = self.inner.lock();
         let mut progress = 0;
         while progress < buf.len() {
             let pos = VirtAddr::from(usize::from(vaddr) + progress);
@@ -146,7 +147,7 @@ impl AddressSpace {
                 None => break,
             };
             let start = usize::from(pos) - usize::from(mapping.base_vpn.addr());
-            let end = usize::min(buf.len() - progress, mapping.page_count * PAGE_SIZE);
+            let end = usize::min(buf.len() - progress + start, mapping.page_count * PAGE_SIZE);
             let target = progress + (end - start);
             progress += mapping.vmo.write(
                 mapping.vmo_page_offset * PAGE_SIZE + start,
