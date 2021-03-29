@@ -122,4 +122,12 @@ __restore:
     sret
     .align 4
 __ktraps:
+	# if entering trap_from_kernel triggers another trap
+	# it is likely to be a stack overflow
+	# in such case, uncomment following lines
+	# to allow debugging with `info registers` in qemu
+	# csrr x31, scause
+	# csrr x30, stval
+	# csrr x29, sepc
+	# j __ktraps
 	j trap_from_kernel

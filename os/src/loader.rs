@@ -10,8 +10,8 @@ use lazy_static::*;
 
 global_asm!(include_str!("embed_app.asm"));
 
-pub const USER_STACK_SIZE: usize = 4096 * 2;
-pub const KERNEL_STACK_SIZE: usize = 4096 * 2;
+pub const USER_STACK_SIZE: usize = 4096 * 16;
+pub const KERNEL_STACK_SIZE: usize = 4096 * 16;
 pub const MAX_APP_NUM: usize = 16;
 lazy_static! {
     pub static ref APP_BASE_ADDRESS: usize = option_env!("USER_BASE_ADDRESS_START")
