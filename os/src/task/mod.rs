@@ -130,10 +130,7 @@ impl TaskManager {
 
     pub fn current_aspace(&self) -> Option<Arc<AddressSpace>> {
         let inner = self.inner.lock();
-        inner.tasks[inner.current]
-            .aspace
-            .as_ref()
-            .map(|aspace| aspace.clone())
+        inner.tasks[inner.current].aspace.as_ref().cloned()
     }
 }
 

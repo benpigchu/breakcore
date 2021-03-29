@@ -24,7 +24,7 @@ impl Frame {
     pub fn ppn(&self) -> PhysPageNum {
         self.ppn
     }
-    pub fn content(&self) -> &mut [u8; PAGE_SIZE] {
+    pub fn content(&self) -> &'static mut [u8; PAGE_SIZE] {
         unsafe {
             self.ppn
                 .addr()
