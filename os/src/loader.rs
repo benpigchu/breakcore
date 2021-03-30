@@ -1,6 +1,6 @@
 use crate::mm::addr::*;
 use crate::mm::aspace::{AddressSpace, KERNEL_ASPACE, KSTACK_BASE_VPN, TRAMPOLINE_BASE_VPN};
-use crate::mm::vmo::{VMObjectPaged, VMObjectPhysical, TRAMPOLINE};
+use crate::mm::vmo::{VMObject, VMObjectPaged, VMObjectPhysical, TRAMPOLINE};
 use crate::mm::PTEFlags;
 use crate::task::TaskContext;
 use crate::trap::context::TrapContext;
@@ -54,21 +54,11 @@ impl KernelStack {
     }
 }
 
-impl UserStack {
-    fn get_sp(&self) -> usize {
-        self.data.as_ptr() as usize + USER_STACK_SIZE
-    }
-}
-
-fn init_stack(kstack: &mut KernelStack, ustack: &UserStack, pc: usize, user_satp: usize) -> usize {
+fn init_stack(kstack: &mut KernelStack, ustack_sp: usize, pc: usize, user_satp: usize) -> usize {
     kstack.push_context(
-        TrapContext::new(pc, ustack.get_sp(), user_satp, kstack.get_sp()),
+        TrapContext::new(pc, ustack_sp, user_satp, kstack.get_sp()),
         TaskContext::goto_launch(),
     )
-}
-
-fn app_base_address(id: usize) -> usize {
-    (*APP_BASE_ADDRESS) + id * (*APP_SIZE_LIMIT)
 }
 
 pub struct AppManager {
@@ -115,43 +105,112 @@ impl AppManager {
     }
     pub fn load_app(&self, id: usize) -> LoadedApp {
         let (app_start_address, app_end_address) = self.app_span[id];
-        let app_bin = unsafe {
+        let app_bin_data = unsafe {
             slice::from_raw_parts(
                 app_start_address as *const u8,
                 app_end_address - app_start_address,
             )
         };
-        let sapp = app_base_address(id);
-        let eapp = app_base_address(id) + (*APP_SIZE_LIMIT);
-        println!("[kernel] base_addr: {:#x?}", sapp);
-        let app_dest = unsafe { slice::from_raw_parts_mut(sapp as *mut u8, *APP_SIZE_LIMIT) };
-        app_dest.fill(0);
-        app_dest
-            .get_mut(0..app_bin.len())
-            .expect("App binary is too big!")
-            .copy_from_slice(app_bin);
+        // TODO: load ELF
+        let aspace = AddressSpace::new();
+        let mut elf_vaddr_end = 0usize;
+        let mut stack_pte_flags = PTEFlags::U;
+
+        use object::elf::*;
+        use object::read::elf::*;
+        use object::{Bytes, LittleEndian};
+        let app_bin_bytes = Bytes(app_bin_data);
+        // we are using little endian elf64 format
+        let file_header = FileHeader64::<LittleEndian>::parse(app_bin_bytes).unwrap();
+        println!("[kernel] Parsing ELF...");
+        assert!(file_header.is_little_endian());
+        assert!(file_header.is_class_64());
+        assert_eq!(file_header.e_machine(LittleEndian), EM_RISCV);
+        assert_eq!(file_header.e_type(LittleEndian), ET_EXEC);
+        let entry = file_header.e_entry(LittleEndian) as usize;
+        let program_headers = file_header
+            .program_headers(LittleEndian, app_bin_bytes)
+            .unwrap();
+        for program_header in program_headers {
+            fn pte_flags_from_ph_flags(ph_flags: u32) -> PTEFlags {
+                let mut pte_flags = PTEFlags::empty();
+                if ph_flags & PF_R != 0 {
+                    pte_flags.insert(PTEFlags::R)
+                }
+                if ph_flags & PF_W != 0 {
+                    pte_flags.insert(PTEFlags::W)
+                }
+                if ph_flags & PF_X != 0 {
+                    pte_flags.insert(PTEFlags::X)
+                }
+                pte_flags
+            }
+            match program_header.p_type(LittleEndian) {
+                PT_LOAD => {
+                    println!("[kernel]     ELF segment:LOAD");
+                    let ph_flags = program_header.p_flags(LittleEndian);
+                    let mut pte_flags = pte_flags_from_ph_flags(ph_flags);
+                    println!("[kernel]         flags:{:?}", pte_flags);
+                    pte_flags.insert(PTEFlags::U);
+                    let vaddr_start = program_header.p_vaddr(LittleEndian) as usize;
+                    let mem_size = program_header.p_memsz(LittleEndian) as usize;
+                    let vaddr_end = vaddr_start + mem_size;
+                    println!(
+                        "[kernel]         vaddr:{:#x?}-{:#x?}",
+                        vaddr_start, vaddr_end
+                    );
+                    if vaddr_start % PAGE_SIZE != 0 {
+                        panic!("ELF LOAD segment start address not page aligned")
+                    }
+                    let vmo = VMObjectPaged::new(page_count(mem_size));
+                    let wrote_size = vmo.write(
+                        0,
+                        program_header
+                            .data_as_array(LittleEndian, app_bin_bytes)
+                            .unwrap(),
+                    );
+                    assert_eq!(mem_size, wrote_size);
+                    aspace
+                        .map(
+                            vmo,
+                            0,
+                            VirtAddr::from(vaddr_start).floor_page_num(),
+                            None,
+                            pte_flags,
+                        )
+                        .unwrap();
+                    elf_vaddr_end = usize::max(elf_vaddr_end, vaddr_end)
+                }
+                PT_GNU_STACK => {
+                    println!("[kernel]     ELF segment:STACK");
+                    let ph_flags = program_header.p_flags(LittleEndian);
+                    let pte_flags = pte_flags_from_ph_flags(ph_flags);
+                    println!("[kernel]         flags:{:?}", pte_flags);
+                    stack_pte_flags.insert(pte_flags)
+                }
+                PT_INTERP => {
+                    panic!("Dynamic linking is not supported");
+                }
+                other => {
+                    println!("[kernel]     ELF segment:{:?}", other);
+                }
+            }
+        }
         unsafe {
             llvm_asm!("fence.i" :::: "volatile");
         }
-        let aspace = AddressSpace::new();
-        // map user app
-        aspace.map(
-            VMObjectPhysical::from_range(PhysAddr::from(sapp), PhysAddr::from(eapp)),
-            0,
-            VirtAddr::from(sapp).floor_page_num(),
-            None,
-            PTEFlags::RWX | PTEFlags::U,
-        );
         // map user stack
         let sstack = USER_STACK[id].data.as_ptr() as usize;
         let estack = sstack + USER_STACK_SIZE;
+        let vsstack_pn = VirtAddr::from(elf_vaddr_end + PAGE_SIZE).ceil_page_num();
         aspace.map(
             VMObjectPhysical::from_range(PhysAddr::from(sstack), PhysAddr::from(estack)),
             0,
-            VirtAddr::from(sstack).floor_page_num(),
+            vsstack_pn,
             None,
-            PTEFlags::R | PTEFlags::W | PTEFlags::U,
+            stack_pte_flags,
         );
+        println!("[kernel] map user stack at {:#x?}", vsstack_pn.addr());
         // map trampoline
         aspace.map(
             TRAMPOLINE.clone(),
@@ -182,7 +241,12 @@ impl AppManager {
         let token = aspace.token();
         LoadedApp {
             aspace,
-            kernel_sp: init_stack(kstack, &USER_STACK[id], app_base_address(id), token),
+            kernel_sp: init_stack(
+                kstack,
+                usize::from(vsstack_pn.addr()) + USER_STACK_SIZE,
+                entry,
+                token,
+            ),
         }
     }
 }

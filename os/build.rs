@@ -19,7 +19,7 @@ fn gen_embed_app_asm() {
     write!(
         f,
         r#"
-    .align 4
+    .balign 16
     .section .data
     .global app_list
 app_list:
@@ -42,14 +42,14 @@ app_list:
     for (i, name) in app_names.iter().enumerate() {
         // We moved the binary when we run the makefile,
         // so we do not need to change the incbin path when changing profile
-        let app_bin_path = format!("target/{}/{}.bin", env::var("TARGET").unwrap(), name);
+        let app_bin_path = format!("target/{}/{}", env::var("TARGET").unwrap(), name);
         println!("cargo:rerun-if-changed=../user/src/bin/{}.rs", name);
         println!("cargo:rerun-if-changed=../{}", app_bin_path);
 
         write!(
             f,
             r#"
-    .align 4
+    .balign 16
     .section .data
     .global app_{}_start
     .global app_{}_end

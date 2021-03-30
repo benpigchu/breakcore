@@ -2,7 +2,7 @@
     .section .text.trampoline
     .globl __alltraps
     .globl __restore
-    .align 4
+    .balign 4
 __alltraps:
 	# move to kernel stack
     csrrw sp, sscratch, sp
@@ -120,7 +120,7 @@ __restore:
 	# switch user/kernel stack
 	csrrw sp, sscratch, sp
     sret
-    .align 4
+    .balign 4
 __ktraps:
 	# if entering trap_from_kernel triggers another trap
 	# it is likely to be a stack overflow

@@ -110,7 +110,7 @@ impl VMObject for VMObjectPaged {
         let mut current_page = start_page;
         let mut progress = 0usize;
         while progress < len {
-            let start = current_page * PAGE_SIZE - offset - progress;
+            let start = offset + progress - current_page * PAGE_SIZE;
             let end = usize::min(len - progress + start, PAGE_SIZE);
             let target = progress + (end - start);
             buf[progress..target].copy_from_slice(&self.frames[current_page].content()[start..end]);
@@ -129,7 +129,7 @@ impl VMObject for VMObjectPaged {
         let mut current_page = start_page;
         let mut progress = 0usize;
         while progress < len {
-            let start = current_page * PAGE_SIZE - offset - progress;
+            let start = offset + progress - current_page * PAGE_SIZE;
             let end = usize::min(len - progress + start, PAGE_SIZE);
             let target = progress + (end - start);
             self.frames[current_page].content()[start..end].copy_from_slice(&buf[progress..target]);
