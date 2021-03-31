@@ -2,7 +2,7 @@ use super::addr::*;
 use lazy_static::{initialize, lazy_static};
 use spin::Mutex;
 
-pub const FRAME_MEMORY_START: usize = 0x82000000; //128MiB
+pub const FRAME_MEMORY_START: usize = 0x81000000; //128MiB
 
 #[derive(Debug)]
 pub struct Frame {

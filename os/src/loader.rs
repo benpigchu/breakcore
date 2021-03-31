@@ -1,6 +1,6 @@
 use crate::mm::addr::*;
 use crate::mm::aspace::{AddressSpace, KERNEL_ASPACE, KSTACK_BASE_VPN, TRAMPOLINE_BASE_VPN};
-use crate::mm::vmo::{VMObject, VMObjectPaged, VMObjectPhysical, TRAMPOLINE};
+use crate::mm::vmo::{VMObject, VMObjectPaged, TRAMPOLINE};
 use crate::mm::PTEFlags;
 use crate::task::TaskContext;
 use crate::trap::context::TrapContext;
@@ -13,28 +13,10 @@ global_asm!(include_str!("embed_app.asm"));
 pub const USER_STACK_SIZE: usize = 4096 * 16;
 pub const KERNEL_STACK_SIZE: usize = 4096 * 16;
 pub const MAX_APP_NUM: usize = 16;
-lazy_static! {
-    pub static ref APP_BASE_ADDRESS: usize = option_env!("USER_BASE_ADDRESS_START")
-        .and_then(|s| usize::from_str_radix(s.trim_start_matches("0x"), 16).ok())
-        .unwrap_or(0x80400000);
-    pub static ref APP_SIZE_LIMIT: usize = option_env!("USER_BASE_ADDRESS_STEP")
-        .and_then(|s| usize::from_str_radix(s.trim_start_matches("0x"), 16).ok())
-        .unwrap_or(0x00020000);
-}
 #[repr(align(4096))]
 struct KernelStack {
     data: [u8; KERNEL_STACK_SIZE],
 }
-
-#[repr(align(4096))]
-struct UserStack {
-    data: [u8; USER_STACK_SIZE],
-}
-
-#[link_section = ".bss"]
-static USER_STACK: [UserStack; MAX_APP_NUM] = [UserStack {
-    data: [0; USER_STACK_SIZE],
-}; MAX_APP_NUM];
 
 impl KernelStack {
     fn get_sp(&self) -> usize {
@@ -100,8 +82,6 @@ impl AppManager {
                 i, APP_MANAGER.app_span[i].0, APP_MANAGER.app_span[i].1
             );
         }
-        println!("[kernel] APP_BASE_ADDRESS: {:#x?}", *APP_BASE_ADDRESS);
-        println!("[kernel] APP_SIZE_LIMIT: {:#x?}", *APP_SIZE_LIMIT);
     }
     pub fn load_app(&self, id: usize) -> LoadedApp {
         let (app_start_address, app_end_address) = self.app_span[id];
@@ -200,16 +180,9 @@ impl AppManager {
             llvm_asm!("fence.i" :::: "volatile");
         }
         // map user stack
-        let sstack = USER_STACK[id].data.as_ptr() as usize;
-        let estack = sstack + USER_STACK_SIZE;
+        let ustack = VMObjectPaged::new(page_count(USER_STACK_SIZE));
         let vsstack_pn = VirtAddr::from(elf_vaddr_end + PAGE_SIZE).ceil_page_num();
-        aspace.map(
-            VMObjectPhysical::from_range(PhysAddr::from(sstack), PhysAddr::from(estack)),
-            0,
-            vsstack_pn,
-            None,
-            stack_pte_flags,
-        );
+        aspace.map(ustack, 0, vsstack_pn, None, stack_pte_flags);
         println!("[kernel] map user stack at {:#x?}", vsstack_pn.addr());
         // map trampoline
         aspace.map(

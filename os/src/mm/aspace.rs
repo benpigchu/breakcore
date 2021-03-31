@@ -254,7 +254,7 @@ pub fn kernel_aspace_init() {
         0,
         VirtAddr::from(sbss).floor_page_num(),
         None,
-        PTEFlags::R | PTEFlags::W | PTEFlags::U,
+        PTEFlags::R | PTEFlags::W,
     );
     // | empty space
     // - DEBUGINFO_ELF_ADDRESS
@@ -273,22 +273,7 @@ pub fn kernel_aspace_init() {
         None,
         PTEFlags::R,
     );
-    // - DEBUGINFO_ELF_ADDRESS+DEBUGINFO_ELF_SIZE=APP_BASE_ADDRESS
-    // | app memory space, RWXU
-    use crate::loader::{APP_BASE_ADDRESS, APP_SIZE_LIMIT, MAX_APP_NUM};
-    let sapp = *APP_BASE_ADDRESS;
-    let eapp = sapp + MAX_APP_NUM * (*APP_SIZE_LIMIT);
-    println!("[kernel] map app: {:#x?}-{:#x?}", sapp, eapp);
-    KERNEL_ASPACE.map(
-        VMObjectPhysical::from_range(PhysAddr::from(sapp), PhysAddr::from(eapp)),
-        0,
-        VirtAddr::from(sapp).floor_page_num(),
-        None,
-        PTEFlags::RWX | PTEFlags::U,
-    );
-    // - APP_BASE_ADDRESS+APP_SIZE_LIMIT*MAX_APP_NUM
-    // | empty space
-    // - FRAME_MEMORY_START
+    // - DEBUGINFO_ELF_ADDRESS+DEBUGINFO_ELF_SIZE=FRAME_MEMORY_START
     // | frame allocated mmory, RW
     use super::frame::FRAME_MEMORY_START;
     let sframe = FRAME_MEMORY_START;
