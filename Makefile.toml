@@ -9,9 +9,6 @@ KERNEL_ELF = "target/riscv64gc-unknown-none-elf/${PROFILE_FOLDER}/breakcore-os"
 KERNEL_BIN = "${KERNEL_ELF}.bin"
 KERNEL_DEBUGINFO = "${KERNEL_ELF}.debuginfo"
 USER_PROGRAMS = "00power_3 01power_5 02power_7 03sleep"
-USER_BASE_ADDRESS = { value = "0x81000000", condition = { env_not_set = ["USER_BASE_ADDRESS"] } }
-USER_BASE_ADDRESS_START = "0x81000000"
-USER_BASE_ADDRESS_STEP = "0x00020000"
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
 [tasks.default]
@@ -70,15 +67,8 @@ for name in $names
 do
 	# name=$(echo $f|sed 's/^user\/src\/bin\///;s/\.rs$//')
 	elf="target/riscv64gc-unknown-none-elf/${PROFILE_FOLDER}/$name"
-	bin="$elf.bin"
 	dest_elf="target/riscv64gc-unknown-none-elf/$name"
-	dest_bin="$dest_elf.bin"
-	echo $elf "->" $bin
-	rust-objcopy --binary-architecture=riscv64  \
-		$elf \
-		--strip-all -O binary \
-		$bin
-	cp $bin $dest_bin
+	echo $elf "->" $dest_elf
 	cp $elf $dest_elf
 done
 '''
@@ -96,17 +86,12 @@ workspace = false
 script_runner = "@duckscript"
 script = '''
 names = split ${USER_PROGRAMS} " "
-len = array_length ${names}
-ids = range 0 ${len}
-for id in ${ids}
-	name = array_get ${names} ${id}
-	calc = exec calc -p "base(16),;print ${USER_BASE_ADDRESS_START}+${id}*${USER_BASE_ADDRESS_STEP}"
-	addr = trim ${calc.stdout}
-	echo ${id} ${name} ${addr}
-	set_env USER_BINARY ${name}
-	set_env USER_BASE_ADDRESS ${addr}
-	cm_run_task build-user-bin
-end
+bins_tail = array_join ${names} " --bin "
+echo ${bins_tail}
+bins = concat "--bin " ${bins_tail}
+echo ${bins}
+set_env USER_BINARY "${bins}"
+cm_run_task build-user-bin
 '''
 
 [tasks.build-crate]
@@ -131,7 +116,7 @@ args = [
 	"@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)",
 	"@@split(CARGO_MAKE_CARGO_BUILD_TEST_FLAGS, )",
 	"--bin",
-	"${USER_BINARY}"
+	"@@split(USER_BINARY, )"
 ]
 
 [tasks.objdump]
