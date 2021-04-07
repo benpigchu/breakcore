@@ -1,6 +1,7 @@
 use crate::{task::TaskContext, trap::context::TrapContext};
 use core::slice;
 use lazy_static::*;
+use log::*;
 
 global_asm!(include_str!("embed_app.asm"));
 
@@ -99,15 +100,15 @@ lazy_static! {
 
 impl AppManager {
     pub fn print_info(&self) {
-        println!("[kernel] app_num: {}", APP_MANAGER.app_num);
+        info!("app_num: {}", APP_MANAGER.app_num);
         for i in 0..APP_MANAGER.app_num {
-            println!(
-                "[kernel]     {}: {:#x?}-{:#x?}",
+            info!(
+                "    {}: {:#x?}-{:#x?}",
                 i, APP_MANAGER.app_span[i].0, APP_MANAGER.app_span[i].1
             );
         }
-        println!("[kernel] APP_BASE_ADDRESS: {:#x?}", *APP_BASE_ADDRESS);
-        println!("[kernel] APP_SIZE_LIMIT: {:#x?}", *APP_SIZE_LIMIT);
+        info!("APP_BASE_ADDRESS: {:#x?}", *APP_BASE_ADDRESS);
+        info!("APP_SIZE_LIMIT: {:#x?}", *APP_SIZE_LIMIT);
     }
     pub fn load_app(&self, id: usize) {
         let (app_start_address, app_end_address) = self.app_span[id];
@@ -117,7 +118,7 @@ impl AppManager {
                 app_end_address - app_start_address,
             )
         };
-        println!("[kernel] base_addr: {:#x?}", app_base_address(id));
+        info!("base_addr: {:#x?}", app_base_address(id));
         let app_dest =
             unsafe { slice::from_raw_parts_mut(app_base_address(id) as *mut u8, *APP_SIZE_LIMIT) };
         app_dest.fill(0);

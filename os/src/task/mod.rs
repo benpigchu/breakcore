@@ -2,6 +2,7 @@ use crate::loader::*;
 use crate::sbi::shutdown;
 use core::cell::RefCell;
 use lazy_static::*;
+use log::*;
 
 mod context;
 pub use context::*;
@@ -106,7 +107,7 @@ impl TaskManager {
             drop(inner);
             self.switch_to_task(current, next)
         } else {
-            println!("[kernel] No more app!");
+            info!("No more app!");
             shutdown()
         }
     }
@@ -114,8 +115,8 @@ impl TaskManager {
     pub fn exit_task(&self, exit_code: i32) -> ! {
         let mut inner = self.inner.borrow_mut();
         let current = inner.current;
-        println!(
-            "[kernel] user program {} exited, code: {:#x?}",
+        info!(
+            "user program {} exited, code: {:#x?}",
             current, exit_code
         );
         inner.tasks[current].status = TaskStatus::Exited;
@@ -127,7 +128,7 @@ impl TaskManager {
 
 impl TaskManagerInner {
     fn init_task(&mut self, id: usize) {
-        println!("[kernel] load app: {}", id);
+        info!("load app: {}", id);
         APP_MANAGER.load_app(id);
         self.tasks[id].kernel_sp = init_stack(id)
     }
