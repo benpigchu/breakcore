@@ -1,4 +1,5 @@
 #![allow(unused)]
+use log::*;
 
 const SBI_SET_TIMER: usize = 0x0;
 const SBI_CONSOLE_PUTCHAR: usize = 0x1;
@@ -34,7 +35,7 @@ pub fn console_getchar() -> usize {
 
 pub fn shutdown() -> ! {
     sbi_call(SBI_SHUTDOWN, 0, 0, 0);
-    println!("It should shutdown!");
+    error!("It should shutdown!");
     #[allow(clippy::empty_loop)]
     loop {}
 }

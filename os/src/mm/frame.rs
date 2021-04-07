@@ -1,5 +1,6 @@
 use super::addr::*;
 use lazy_static::{initialize, lazy_static};
+use log::*;
 use spin::Mutex;
 
 pub const FRAME_MEMORY_START: usize = 0x81000000; //128MiB
@@ -126,7 +127,10 @@ pub fn frame_allocator_test() {
     assert!(FRAME_ALLOCATOR.lock().check_allocated(pn2));
     assert!(FRAME_ALLOCATOR.lock().check_allocated(pn3));
     assert!(!FRAME_ALLOCATOR.lock().check_allocated(pn3p1));
-    println!("[kernel] frame_allocator_test: alloc:pn1={:#x?} pn2={:#x?} pn3={:#x?} not alloc: pn3+1={:#x?}",pn1,pn2,pn3,pn3p1);
+    info!(
+        "frame_allocator_test: alloc:pn1={:#x?} pn2={:#x?} pn3={:#x?} not alloc: pn3+1={:#x?}",
+        pn1, pn2, pn3, pn3p1
+    );
     // now pn2=pn1+1,pn3=pn2+1
     FRAME_ALLOCATOR.lock().dealloc(pn1);
     FRAME_ALLOCATOR.lock().dealloc(pn3);
@@ -135,12 +139,12 @@ pub fn frame_allocator_test() {
     assert!(FRAME_ALLOCATOR.lock().check_allocated(pn2));
     assert!(!FRAME_ALLOCATOR.lock().check_allocated(pn3));
     assert!(!FRAME_ALLOCATOR.lock().check_allocated(pn3p1));
-    println!("[kernel] frame_allocator_test: dealloc pn1 pn3");
+    info!("frame_allocator_test: dealloc pn1 pn3");
     let mut pn3re = FRAME_ALLOCATOR.lock().alloc().unwrap();
     let mut pn1re = FRAME_ALLOCATOR.lock().alloc().unwrap();
     assert_eq!(pn3re, pn3);
     assert_eq!(pn1re, pn1);
-    println!("[kernel] frame_allocator_test: alloc pn3 pn1 again");
+    info!("frame_allocator_test: alloc pn3 pn1 again");
     assert!(FRAME_ALLOCATOR.lock().check_allocated(pn1));
     assert!(FRAME_ALLOCATOR.lock().check_allocated(pn2));
     assert!(FRAME_ALLOCATOR.lock().check_allocated(pn3));
@@ -152,19 +156,19 @@ pub fn frame_allocator_test() {
     assert!(!FRAME_ALLOCATOR.lock().check_allocated(pn2));
     assert!(!FRAME_ALLOCATOR.lock().check_allocated(pn3));
     assert!(!FRAME_ALLOCATOR.lock().check_allocated(pn3p1));
-    println!("[kernel] frame_allocator_test: dealloc pn2 pn3 pn1");
+    info!("frame_allocator_test: dealloc pn2 pn3 pn1");
     let mut pn1re2 = FRAME_ALLOCATOR.lock().alloc().unwrap();
     assert_eq!(pn1re2, pn1);
     assert!(FRAME_ALLOCATOR.lock().check_allocated(pn1));
     assert!(!FRAME_ALLOCATOR.lock().check_allocated(pn2));
     assert!(!FRAME_ALLOCATOR.lock().check_allocated(pn3));
     assert!(!FRAME_ALLOCATOR.lock().check_allocated(pn3p1));
-    println!("[kernel] frame_allocator_test: alloc pn1 again");
+    info!("frame_allocator_test: alloc pn1 again");
     FRAME_ALLOCATOR.lock().dealloc(pn1);
     assert!(!FRAME_ALLOCATOR.lock().check_allocated(pn1));
     assert!(!FRAME_ALLOCATOR.lock().check_allocated(pn2));
     assert!(!FRAME_ALLOCATOR.lock().check_allocated(pn3));
     assert!(!FRAME_ALLOCATOR.lock().check_allocated(pn3p1));
-    println!("[kernel] frame_allocator_test: dealloc pn1");
+    info!("frame_allocator_test: dealloc pn1");
     panic!("frame_allocator_test_passed!");
 }

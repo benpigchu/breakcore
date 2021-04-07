@@ -5,6 +5,7 @@ use super::page_table::{PTEFlags, PageTable};
 use super::vmo::{VMObject, VMObjectPhysical, TRAMPOLINE};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use log::*;
 use riscv::register::{satp, sstatus};
 use spin::Mutex;
 
@@ -169,7 +170,7 @@ pub fn kernel_aspace_init() {
     // for now
     unsafe { sstatus::set_sum() };
     initialize(&KERNEL_ASPACE);
-    println!("[kernel] setup kernel address space...");
+    info!("setup kernel address space...");
     // kernel address space:
     // - MEMORY_START=BASE_ADDRESS=stext
     // | text, RX
@@ -179,7 +180,7 @@ pub fn kernel_aspace_init() {
     }
     let stext = stext as usize;
     let etext = etext as usize;
-    println!("[kernel] map text: {:#x?}-{:#x?}", stext, etext);
+    info!("map text: {:#x?}-{:#x?}", stext, etext);
     KERNEL_ASPACE.map(
         VMObjectPhysical::from_range(PhysAddr::from(stext), PhysAddr::from(etext)),
         0,
@@ -195,7 +196,7 @@ pub fn kernel_aspace_init() {
     }
     let srodata = srodata as usize;
     let erodata = erodata as usize;
-    println!("[kernel] map rodata: {:#x?}-{:#x?}", srodata, erodata);
+    info!("map rodata: {:#x?}-{:#x?}", srodata, erodata);
     KERNEL_ASPACE.map(
         VMObjectPhysical::from_range(PhysAddr::from(srodata), PhysAddr::from(erodata)),
         0,
@@ -211,7 +212,7 @@ pub fn kernel_aspace_init() {
     }
     let sdata = sdata as usize;
     let edata = edata as usize;
-    println!("[kernel] map data: {:#x?}-{:#x?}", sdata, edata);
+    info!("map data: {:#x?}-{:#x?}", sdata, edata);
     KERNEL_ASPACE.map(
         VMObjectPhysical::from_range(PhysAddr::from(sdata), PhysAddr::from(edata)),
         0,
@@ -229,7 +230,7 @@ pub fn kernel_aspace_init() {
     }
     let sstack = sstack as usize;
     let estack = estack as usize;
-    println!("[kernel] map stack: {:#x?}-{:#x?}", sstack, estack);
+    info!("map stack: {:#x?}-{:#x?}", sstack, estack);
     KERNEL_ASPACE.map(
         VMObjectPhysical::from_range(PhysAddr::from(sstack), PhysAddr::from(estack)),
         0,
@@ -240,7 +241,7 @@ pub fn kernel_aspace_init() {
     // - estack
     // | empty space for stack overflow protect
     // - sbss
-    // | bss, RW and U for now(user stack)
+    // | bss (and sbss), RW and U for now(user stack)
     // - ekernel=ebss
     extern "C" {
         fn sbss();
@@ -248,7 +249,7 @@ pub fn kernel_aspace_init() {
     }
     let sbss = sbss as usize;
     let ebss = ebss as usize;
-    println!("[kernel] map bss: {:#x?}-{:#x?}", sbss, ebss);
+    info!("map bss: {:#x?}-{:#x?}", sbss, ebss);
     KERNEL_ASPACE.map(
         VMObjectPhysical::from_range(PhysAddr::from(sbss), PhysAddr::from(ebss)),
         0,
@@ -262,10 +263,7 @@ pub fn kernel_aspace_init() {
     use crate::backtrace::{DEBUGINFO_ELF_ADDRESS, DEBUGINFO_ELF_SIZE};
     let sdebuginfo = DEBUGINFO_ELF_ADDRESS;
     let edebuginfo = DEBUGINFO_ELF_ADDRESS + DEBUGINFO_ELF_SIZE;
-    println!(
-        "[kernel] map debuginfo: {:#x?}-{:#x?}",
-        sdebuginfo, edebuginfo
-    );
+    info!("map debuginfo: {:#x?}-{:#x?}", sdebuginfo, edebuginfo);
     KERNEL_ASPACE.map(
         VMObjectPhysical::from_range(PhysAddr::from(sdebuginfo), PhysAddr::from(edebuginfo)),
         0,
@@ -278,7 +276,7 @@ pub fn kernel_aspace_init() {
     use super::frame::FRAME_MEMORY_START;
     let sframe = FRAME_MEMORY_START;
     let eframe = MEMORY_END;
-    println!("[kernel] map frames: {:#x?}-{:#x?}", sframe, eframe);
+    info!("map frames: {:#x?}-{:#x?}", sframe, eframe);
     KERNEL_ASPACE.map(
         VMObjectPhysical::from_range(PhysAddr::from(sframe), PhysAddr::from(eframe)),
         0,
@@ -296,7 +294,7 @@ pub fn kernel_aspace_init() {
         None,
         PTEFlags::R | PTEFlags::X,
     );
-    println!("[kernel] paging enabling...");
+    info!("paging enabling...");
     KERNEL_ASPACE.apply();
-    println!("[kernel] paging enabled!");
+    info!("paging enabled!");
 }

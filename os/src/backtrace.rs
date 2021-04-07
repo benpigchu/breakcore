@@ -5,9 +5,11 @@ use alloc::boxed::Box;
 use core::option::Option;
 use core::slice;
 use lazy_static::*;
+use log::*;
 use object::{File, Object, ObjectSection};
 
 pub fn print_backtrace() {
+    print!("\u{1B}[31m");
     extern "C" {
         fn stext();
         fn etext();
@@ -62,6 +64,7 @@ pub fn print_backtrace() {
         }
         layer += 1;
     }
+    print!("\u{1B}[0m");
 }
 
 struct Addr2LineContext {
@@ -112,9 +115,6 @@ pub fn init() {
         fn skernel();
         fn ekernel();
     }
-    println!(
-        "[kernel] kernel: {:#x?}-{:#x?}",
-        skernel as usize, ekernel as usize
-    );
-    println!("[kernel] addr2line ok? {:?}", ADDR2LINE_CONTEXT.is_some());
+    info!("kernel: {:#x?}-{:#x?}", skernel as usize, ekernel as usize);
+    info!("addr2line ok? {:?}", ADDR2LINE_CONTEXT.is_some());
 }

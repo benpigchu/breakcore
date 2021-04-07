@@ -45,7 +45,9 @@ SECTIONS
         sbss = .;
         *(.bss .bss.*)
     }
-
+    .sbss : {
+        *(.sbss .sbss.*)
+    }
     . = ALIGN(4K);
     ebss = .;
     ekernel = .;

@@ -3,6 +3,7 @@ use crate::mm::aspace::AddressSpace;
 use crate::sbi::shutdown;
 use alloc::sync::Arc;
 use lazy_static::*;
+use log::*;
 use spin::Mutex;
 
 mod context;
@@ -110,7 +111,7 @@ impl TaskManager {
             drop(inner);
             self.switch_to_task(current, next)
         } else {
-            println!("[kernel] No more app!");
+            info!("No more app!");
             shutdown()
         }
     }
@@ -118,10 +119,7 @@ impl TaskManager {
     pub fn exit_task(&self, exit_code: i32) -> ! {
         let mut inner = self.inner.lock();
         let current = inner.current;
-        println!(
-            "[kernel] user program {} exited, code: {:#x?}",
-            current, exit_code
-        );
+        info!("user program {} exited, code: {:#x?}", current, exit_code);
         inner.tasks[current].status = TaskStatus::Exited;
         drop(inner);
         self.switch_task();
@@ -136,7 +134,7 @@ impl TaskManager {
 
 impl TaskManagerInner {
     fn init_task(&mut self, id: usize) {
-        println!("[kernel] load app: {}", id);
+        info!("load app: {}", id);
         let loaded_app = APP_MANAGER.load_app(id);
         self.tasks[id].kernel_sp = loaded_app.kernel_sp;
         self.tasks[id].aspace = Some(loaded_app.aspace)

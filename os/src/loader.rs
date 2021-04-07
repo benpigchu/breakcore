@@ -7,6 +7,7 @@ use crate::trap::context::TrapContext;
 use alloc::sync::Arc;
 use core::slice;
 use lazy_static::*;
+use log::*;
 
 global_asm!(include_str!("embed_app.asm"));
 
@@ -75,10 +76,10 @@ lazy_static! {
 
 impl AppManager {
     pub fn print_info(&self) {
-        println!("[kernel] app_num: {}", APP_MANAGER.app_num);
+        info!("app_num: {}", APP_MANAGER.app_num);
         for i in 0..APP_MANAGER.app_num {
-            println!(
-                "[kernel]     {}: {:#x?}-{:#x?}",
+            info!(
+                "    {}: {:#x?}-{:#x?}",
                 i, APP_MANAGER.app_span[i].0, APP_MANAGER.app_span[i].1
             );
         }
@@ -102,7 +103,7 @@ impl AppManager {
         let app_bin_bytes = Bytes(app_bin_data);
         // we are using little endian elf64 format
         let file_header = FileHeader64::<LittleEndian>::parse(app_bin_bytes).unwrap();
-        println!("[kernel] Parsing ELF...");
+        info!("Parsing ELF...");
         assert!(file_header.is_little_endian());
         assert!(file_header.is_class_64());
         assert_eq!(file_header.e_machine(LittleEndian), EM_RISCV);
@@ -127,18 +128,15 @@ impl AppManager {
             }
             match program_header.p_type(LittleEndian) {
                 PT_LOAD => {
-                    println!("[kernel]     ELF segment:LOAD");
+                    info!("    ELF segment:LOAD");
                     let ph_flags = program_header.p_flags(LittleEndian);
                     let mut pte_flags = pte_flags_from_ph_flags(ph_flags);
-                    println!("[kernel]         flags:{:?}", pte_flags);
+                    info!("        flags:{:?}", pte_flags);
                     pte_flags.insert(PTEFlags::U);
                     let vaddr_start = program_header.p_vaddr(LittleEndian) as usize;
                     let mem_size = program_header.p_memsz(LittleEndian) as usize;
                     let vaddr_end = vaddr_start + mem_size;
-                    println!(
-                        "[kernel]         vaddr:{:#x?}-{:#x?}",
-                        vaddr_start, vaddr_end
-                    );
+                    info!("        vaddr:{:#x?}-{:#x?}", vaddr_start, vaddr_end);
                     if vaddr_start % PAGE_SIZE != 0 {
                         panic!("ELF LOAD segment start address not page aligned")
                     }
@@ -162,17 +160,17 @@ impl AppManager {
                     elf_vaddr_end = usize::max(elf_vaddr_end, vaddr_end)
                 }
                 PT_GNU_STACK => {
-                    println!("[kernel]     ELF segment:STACK");
+                    info!("    ELF segment:STACK");
                     let ph_flags = program_header.p_flags(LittleEndian);
                     let pte_flags = pte_flags_from_ph_flags(ph_flags);
-                    println!("[kernel]         flags:{:?}", pte_flags);
+                    info!("        flags:{:?}", pte_flags);
                     stack_pte_flags.insert(pte_flags)
                 }
                 PT_INTERP => {
                     panic!("Dynamic linking is not supported");
                 }
                 other => {
-                    println!("[kernel]     ELF segment:{:?}", other);
+                    info!("    ELF segment:{:?}", other);
                 }
             }
         }
@@ -183,7 +181,7 @@ impl AppManager {
         let ustack = VMObjectPaged::new(page_count(USER_STACK_SIZE));
         let vsstack_pn = VirtAddr::from(elf_vaddr_end + PAGE_SIZE).ceil_page_num();
         aspace.map(ustack, 0, vsstack_pn, None, stack_pte_flags);
-        println!("[kernel] map user stack at {:#x?}", vsstack_pn.addr());
+        info!("map user stack at {:#x?}", vsstack_pn.addr());
         // map trampoline
         aspace.map(
             TRAMPOLINE.clone(),

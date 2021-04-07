@@ -1,5 +1,6 @@
 use crate::sbi::shutdown;
 use buddy_system_allocator::LockedHeap;
+use log::*;
 
 const KERNEL_HEAP_SIZE: usize = 0x400000;
 #[repr(align(4096))]
@@ -15,14 +16,14 @@ static HEAP_ALLOCATOR: LockedHeap = LockedHeap::empty();
 
 #[alloc_error_handler]
 fn handle_alloc_error(layout: core::alloc::Layout) -> ! {
-    println!("[kernel] OOM! layout = {:#x?}", layout);
+    error!("OOM! layout = {:#x?}", layout);
     shutdown()
 }
 
 pub fn init() {
     unsafe {
         let heap_start = HEAP_SPACE.data.as_ptr() as usize;
-        println!("[kernel] heap: {:#x?}+{:#x?}", heap_start, KERNEL_HEAP_SIZE);
+        info!("heap: {:#x?}+{:#x?}", heap_start, KERNEL_HEAP_SIZE);
         HEAP_ALLOCATOR.lock().init(heap_start, KERNEL_HEAP_SIZE);
     }
 }
@@ -51,8 +52,8 @@ fn heap_test() -> ! {
     for (i, n) in small_vec.iter().enumerate() {
         assert_eq!(*n, i);
     }
-    println!("[kernel] Basic heap test passed");
-    println!("[kernel] Next alloc should OOM");
+    info!("Basic heap test passed");
+    info!("Next alloc should OOM");
     let _very_large_vec = Vec::<u8>::with_capacity(KERNEL_HEAP_SIZE + 1);
     unreachable!("Should OOM here!");
 }

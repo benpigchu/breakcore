@@ -17,6 +17,7 @@ mod backtrace;
 mod heap;
 mod lang;
 mod loader;
+mod logging;
 mod mm;
 mod sbi;
 mod syscall;
@@ -25,12 +26,14 @@ mod timer;
 mod trap;
 
 use loader::APP_MANAGER;
+use log::*;
 use task::TASK_MANAGER;
 
 #[no_mangle]
 pub fn rust_main() -> ! {
     clear_bss();
-    println!("[kernel] Hello, world!");
+    logging::init();
+    info!("Hello, world!");
     heap::init();
     backtrace::init();
     mm::init();
@@ -55,7 +58,7 @@ fn clear_bss() {
         fn sbss();
         fn ebss();
     }
-    println!("[kernel] bss: {:#x?}-{:#x?}", sbss as usize, ebss as usize);
+    info!("bss: {:#x?}-{:#x?}", sbss as usize, ebss as usize);
     for addr in (sbss as usize)..(ebss as usize) {
         unsafe { (addr as *mut u8).write_volatile(0) }
     }
