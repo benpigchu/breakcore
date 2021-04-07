@@ -3,12 +3,12 @@ pub mod context;
 use crate::batch::exit_app;
 use crate::syscall::syscall;
 use context::TrapContext;
+use log::*;
 use riscv::register::{
     mtvec::TrapMode,
     scause::{self, Exception, Trap},
     stval, stvec,
 };
-use log::*;
 
 global_asm!(include_str!("trap.asm"));
 
@@ -37,10 +37,7 @@ extern "C" fn trap_handler(cx: *mut TrapContext) -> *mut TrapContext {
             exit_app();
         }
         Trap::Exception(Exception::IllegalInstruction) => {
-            info!(
-                "Illegal instruction in application, stval = {:#x}",
-                stval
-            );
+            info!("Illegal instruction in application, stval = {:#x}", stval);
             exit_app();
         }
         cause => {
