@@ -21,10 +21,9 @@ pub fn sys_get_time(time_val_addr: VirtAddr) -> isize {
         sec: time_ms / MSEC_PER_SEC,
         usec: USEC_PER_MSEC * (time_ms % MSEC_PER_SEC),
     };
-    let buf = unsafe {
-        slice::from_raw_parts(&time_val as *const _ as *const u8, size_of::<TimeVal>())
-    };
-    if aspace.write(time_val_addr, buf) == buf.len() {
+    let buf =
+        unsafe { slice::from_raw_parts(&time_val as *const _ as *const u8, size_of::<TimeVal>()) };
+    if aspace.write(time_val_addr, buf, true) == buf.len() {
         0
     } else {
         -1

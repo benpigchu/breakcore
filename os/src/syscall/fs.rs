@@ -11,7 +11,7 @@ pub fn sys_write(fd: usize, addr: VirtAddr, len: usize) -> isize {
     } else {
         return -1;
     };
-    let real_len = aspace.read(addr, &mut buffer);
+    let real_len = aspace.read(addr, &mut buffer, true);
     let str = unsafe { core::str::from_utf8_unchecked(&buffer) };
     match fd {
         FD_STDOUT => {

@@ -45,9 +45,12 @@ struct AddressSpaceInner {
 }
 
 impl AddressSpaceInner {
-    fn find_mapping(&self, vaddr: VirtAddr) -> Option<&Arc<VMMapping>> {
+    fn find_mapping(&self, vaddr: VirtAddr, flags: PTEFlags) -> Option<&Arc<VMMapping>> {
         let page = vaddr.floor_page_num();
         for mapping in &self.mappings {
+            if !mapping.flags.contains(flags) {
+                continue;
+            }
             if (page >= mapping.base_vpn)
                 && (usize::from(page) < usize::from(mapping.base_vpn) + mapping.page_count)
             {
@@ -115,12 +118,16 @@ impl AddressSpace {
         }
         Some(())
     }
-    pub fn read(&self, vaddr: VirtAddr, buf: &mut [u8]) -> usize {
+    pub fn read(&self, vaddr: VirtAddr, buf: &mut [u8], user: bool) -> usize {
         let inner = self.inner.lock();
+        let mut flags = PTEFlags::R;
+        if user {
+            flags.insert(PTEFlags::U)
+        }
         let mut progress = 0;
         while progress < buf.len() {
             let pos = VirtAddr::from(usize::from(vaddr) + progress);
-            let mapping = match inner.find_mapping(pos) {
+            let mapping = match inner.find_mapping(pos, flags) {
                 Some(mapping) => mapping,
                 None => break,
             };
@@ -138,12 +145,16 @@ impl AddressSpace {
         progress
     }
     #[allow(dead_code)]
-    pub fn write(&self, vaddr: VirtAddr, buf: &[u8]) -> usize {
+    pub fn write(&self, vaddr: VirtAddr, buf: &[u8], user: bool) -> usize {
         let inner = self.inner.lock();
+        let mut flags = PTEFlags::W;
+        if user {
+            flags.insert(PTEFlags::U)
+        }
         let mut progress = 0;
         while progress < buf.len() {
             let pos = VirtAddr::from(usize::from(vaddr) + progress);
-            let mapping = match inner.find_mapping(pos) {
+            let mapping = match inner.find_mapping(pos, flags) {
                 Some(mapping) => mapping,
                 None => break,
             };
