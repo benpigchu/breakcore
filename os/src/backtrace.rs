@@ -1,4 +1,5 @@
 pub fn print_backtrace() {
+    print!("\u{1B}[31m");
     extern "C" {
         fn boot_stack();
         fn boot_stack_top();
@@ -29,4 +30,5 @@ pub fn print_backtrace() {
         }
         layer += 1;
     }
+    print!("\u{1B}[0m");
 }
