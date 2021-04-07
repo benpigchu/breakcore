@@ -10,12 +10,17 @@ global_asm!(include_str!("entry.asm"));
 mod console;
 mod backtrace;
 mod lang;
+mod logging;
 mod sbi;
+
+use log::*;
 
 #[no_mangle]
 pub fn rust_main() -> ! {
     clear_bss();
     println!("Hello, world!");
+    logging::init();
+    info!("Hello, world!");
     test_panic(10)
 }
 
