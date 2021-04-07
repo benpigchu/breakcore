@@ -4,7 +4,7 @@ use core::panic::PanicInfo;
 
 #[panic_handler]
 fn panic(info: &PanicInfo) -> ! {
-    println!("[kernel] {}", info);
+    println!("\u{1B}[31m[PANIC]{}\u{1B}[0m", info);
     print_backtrace();
     shutdown()
 }

@@ -3,6 +3,7 @@ mod misc;
 mod proc;
 
 use fs::*;
+use log::*;
 use misc::*;
 use proc::*;
 
@@ -18,7 +19,7 @@ pub fn syscall(syscall_id: usize, args0: usize, args1: usize, args2: usize) -> i
         SYSCALL_YIELD => sys_yield(),
         SYSCALL_GET_TIME => sys_get_time(),
         _ => {
-            println!("[kernel] Unsupported syscall_id: {}", syscall_id);
+            warn!("Unsupported syscall_id: {}", syscall_id);
             sys_exit(-1)
         }
     }

@@ -13,6 +13,7 @@ mod console;
 mod backtrace;
 mod lang;
 mod loader;
+mod logging;
 mod sbi;
 mod syscall;
 mod task;
@@ -20,12 +21,14 @@ mod timer;
 mod trap;
 
 use loader::APP_MANAGER;
+use log::*;
 use task::TASK_MANAGER;
 
 #[no_mangle]
 pub fn rust_main() -> ! {
     clear_bss();
-    println!("[kernel] Hello, world!");
+    logging::init();
+    info!("Hello, world!");
     trap::init();
     timer::init();
     timer::schedule_next();
@@ -50,5 +53,5 @@ fn clear_bss() {
     for addr in (sbss as usize)..(ebss as usize) {
         unsafe { (addr as *mut u8).write_volatile(0) }
     }
-    println!("[kernel] bss: {:#x?}-{:#x?}", sbss as usize, ebss as usize);
+    info!("bss: {:#x?}-{:#x?}", sbss as usize, ebss as usize);
 }

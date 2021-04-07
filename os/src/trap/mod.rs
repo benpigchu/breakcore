@@ -3,6 +3,7 @@ pub mod context;
 use crate::task::TASK_MANAGER;
 use crate::{syscall::syscall, timer};
 use context::TrapContext;
+use log::*;
 use riscv::register::{
     mtvec::TrapMode,
     scause::{self, Exception, Trap},
@@ -37,14 +38,11 @@ extern "C" fn trap_handler(cx: *mut TrapContext) -> *mut TrapContext {
         Trap::Exception(Exception::StoreFault)
         | Trap::Exception(Exception::StorePageFault)
         | Trap::Exception(Exception::LoadFault) => {
-            println!("[kernel] Page fault in application, stval = {:#x}", stval);
+            warn!("Page fault in application, stval = {:#x}", stval);
             TASK_MANAGER.exit_task(-1);
         }
         Trap::Exception(Exception::IllegalInstruction) => {
-            println!(
-                "[kernel] Illegal instruction in application, stval = {:#x}",
-                stval
-            );
+            warn!("Illegal instruction in application, stval = {:#x}", stval);
             TASK_MANAGER.exit_task(-1);
         }
         Trap::Interrupt(scause::Interrupt::SupervisorTimer) => {
