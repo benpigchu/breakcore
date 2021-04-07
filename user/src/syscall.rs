@@ -1,3 +1,5 @@
+use super::TimeVal;
+
 pub const STDOUT: usize = 1;
 
 const SYSCALL_WRITE: usize = 64;
@@ -31,6 +33,6 @@ pub fn sys_yield() -> isize {
     syscall(SYSCALL_YIELD, 0, 0, 0)
 }
 
-pub fn sys_get_time() -> isize {
-    syscall(SYSCALL_GET_TIME, 0, 0, 0)
+pub fn sys_get_time(time_val: &mut TimeVal) -> isize {
+    syscall(SYSCALL_GET_TIME, time_val as *mut _ as usize, 0, 0)
 }

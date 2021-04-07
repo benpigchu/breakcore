@@ -32,3 +32,10 @@ fn clear_bss() {
         unsafe { (addr as *mut u8).write_volatile(0) }
     }
 }
+
+#[repr(C)]
+#[derive(Debug, Default)]
+pub struct TimeVal {
+    pub sec: usize,
+    pub usec: usize,
+}
