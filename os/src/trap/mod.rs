@@ -8,6 +8,7 @@ use riscv::register::{
     scause::{self, Exception, Trap},
     stval, stvec,
 };
+use log::*;
 
 global_asm!(include_str!("trap.asm"));
 
@@ -32,12 +33,12 @@ extern "C" fn trap_handler(cx: *mut TrapContext) -> *mut TrapContext {
             cx.x[10] = syscall(cx.x[17], cx.x[10], cx.x[11], cx.x[12]) as usize
         }
         Trap::Exception(Exception::StoreFault) | Trap::Exception(Exception::StorePageFault) => {
-            println!("[kernel] Page fault in application, stval = {:#x}", stval);
+            info!("Page fault in application, stval = {:#x}", stval);
             exit_app();
         }
         Trap::Exception(Exception::IllegalInstruction) => {
-            println!(
-                "[kernel] Illegal instruction in application, stval = {:#x}",
+            info!(
+                "Illegal instruction in application, stval = {:#x}",
                 stval
             );
             exit_app();

@@ -1,6 +1,7 @@
 use crate::{sbi::shutdown, trap::context::TrapContext};
 use core::{cell::RefCell, slice};
 use lazy_static::*;
+use log::*;
 
 const USER_STACK_SIZE: usize = 4096 * 2;
 const KERNEL_STACK_SIZE: usize = 4096 * 2;
@@ -79,10 +80,10 @@ fn launch_app() -> ! {
 pub fn run_next_app() -> ! {
     let mut next_app = APP_MANAGER.next_app_id.borrow_mut();
     if *next_app >= APP_MANAGER.app_num {
-        println!("[kernel] No more app!");
+        info!("No more app!");
         shutdown()
     } else {
-        println!("[kernel] load app: {}", *next_app);
+        info!("load app: {}", *next_app);
         load_app(*next_app);
         *next_app += 1;
         drop(next_app);
@@ -131,10 +132,10 @@ lazy_static! {
 
 pub fn init() {
     initialize(&APP_MANAGER);
-    println!("[kernel] app_num: {}", APP_MANAGER.app_num);
+    info!("app_num: {}", APP_MANAGER.app_num);
     for i in 0..APP_MANAGER.app_num {
-        println!(
-            "[kernel]     {}: {:#x?}-{:#x?}",
+        info!(
+            "    {}: {:#x?}-{:#x?}",
             i, APP_MANAGER.app_span[i].0, APP_MANAGER.app_span[i].1
         );
     }

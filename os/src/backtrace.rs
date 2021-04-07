@@ -1,4 +1,5 @@
 pub fn print_backtrace() {
+    print!("\u{1B}[31m");
     extern "C" {
         fn stext();
         fn etext();
@@ -26,4 +27,5 @@ pub fn print_backtrace() {
         }
         layer += 1;
     }
+    print!("\u{1B}[0m");
 }
