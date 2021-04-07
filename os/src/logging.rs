@@ -23,8 +23,13 @@ impl Log for ConsoleLogger {
 }
 
 pub fn init() {
+    use core::str::FromStr;
     set_logger(&LOGGER).unwrap();
-    set_max_level(LevelFilter::Trace);
+    set_max_level(
+        option_env!("LOG_LEVEL")
+            .and_then(|level_str| LevelFilter::from_str(level_str).ok())
+            .unwrap_or(LevelFilter::Info),
+    );
 }
 
 pub fn color_id(level: Level) -> usize {

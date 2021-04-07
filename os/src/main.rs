@@ -20,7 +20,11 @@ pub fn rust_main() -> ! {
     clear_bss();
     println!("Hello, world!");
     logging::init();
+    trace!("Hello, world!");
+    debug!("Hello, world!");
     info!("Hello, world!");
+    warn!("Hello, world!");
+    error!("Hello, world!");
     test_panic(10)
 }
 
