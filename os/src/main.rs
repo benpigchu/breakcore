@@ -20,8 +20,8 @@ mod task;
 mod trap;
 
 use loader::APP_MANAGER;
-use task::TASK_MANAGER;
 use log::*;
+use task::TASK_MANAGER;
 
 #[no_mangle]
 pub fn rust_main() -> ! {

@@ -115,10 +115,7 @@ impl TaskManager {
     pub fn exit_task(&self, exit_code: i32) -> ! {
         let mut inner = self.inner.borrow_mut();
         let current = inner.current;
-        info!(
-            "user program {} exited, code: {:#x?}",
-            current, exit_code
-        );
+        info!("user program {} exited, code: {:#x?}", current, exit_code);
         inner.tasks[current].status = TaskStatus::Exited;
         drop(inner);
         self.switch_task();
