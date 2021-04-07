@@ -3,7 +3,8 @@ use riscv::register::{sie, time};
 /// Ticks per second, on qemu
 pub const CLOCK_FREQ: usize = 12500000;
 const TICKS_PER_SEC: usize = 100;
-const MSEC_PER_SEC: usize = 1000;
+pub const MSEC_PER_SEC: usize = 1000;
+pub const USEC_PER_MSEC: usize = 1000;
 
 pub fn init() {
     unsafe {
