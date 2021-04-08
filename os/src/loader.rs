@@ -140,7 +140,7 @@ impl AppManager {
                     if vaddr_start % PAGE_SIZE != 0 {
                         panic!("ELF LOAD segment start address not page aligned")
                     }
-                    let vmo = VMObjectPaged::new(page_count(mem_size));
+                    let vmo = VMObjectPaged::new(page_count(mem_size)).unwrap();
                     let wrote_size = vmo.write(
                         0,
                         program_header
@@ -178,7 +178,7 @@ impl AppManager {
             llvm_asm!("fence.i" :::: "volatile");
         }
         // map user stack
-        let ustack = VMObjectPaged::new(page_count(USER_STACK_SIZE));
+        let ustack = VMObjectPaged::new(page_count(USER_STACK_SIZE)).unwrap();
         let vsstack_pn = VirtAddr::from(elf_vaddr_end + PAGE_SIZE).ceil_page_num();
         aspace.map(ustack, 0, vsstack_pn, None, stack_pte_flags);
         info!("map user stack at {:#x?}", vsstack_pn.addr());
@@ -191,7 +191,7 @@ impl AppManager {
             PTEFlags::R | PTEFlags::X,
         );
         // map kernel stack
-        let kstack_vmo = VMObjectPaged::new(page_count(KERNEL_STACK_SIZE));
+        let kstack_vmo = VMObjectPaged::new(page_count(KERNEL_STACK_SIZE)).unwrap();
         aspace.map(
             kstack_vmo.clone(),
             0,

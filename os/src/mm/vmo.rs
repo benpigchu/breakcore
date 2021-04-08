@@ -85,12 +85,12 @@ pub struct VMObjectPaged {
 }
 
 impl VMObjectPaged {
-    pub fn new(page_count: usize) -> Arc<Self> {
+    pub fn new(page_count: usize) -> Option<Arc<Self>> {
         let mut frames = Vec::with_capacity(page_count);
         for _ in 0..page_count {
-            frames.push(Frame::alloc_zeroes().unwrap())
+            frames.push(Frame::alloc_zeroes()?)
         }
-        Arc::new(Self { frames })
+        Some(Arc::new(Self { frames }))
     }
 }
 impl VMObject for VMObjectPaged {

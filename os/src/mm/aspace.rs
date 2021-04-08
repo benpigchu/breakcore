@@ -118,6 +118,24 @@ impl AddressSpace {
         }
         Some(())
     }
+    #[allow(dead_code)]
+    pub fn unmap(&self, base_vpn: VirtPageNum, page_count: usize, user: bool) -> Option<()> {
+        let mut inner = self.inner.lock();
+        let drained = inner.mappings.drain_filter(|mapping| {
+            mapping.base_vpn == base_vpn
+                && mapping.page_count == page_count
+                && (!user || mapping.flags.contains(PTEFlags::U))
+        });
+        let mut return_value = None;
+        let mut page_table = self.page_table.lock();
+        for mapping in drained {
+            for i in 0..mapping.page_count {
+                page_table.unmap((usize::from(mapping.base_vpn) + i).into())
+            }
+            return_value = Some(())
+        }
+        return_value
+    }
     pub fn read(&self, vaddr: VirtAddr, buf: &mut [u8], user: bool) -> usize {
         let inner = self.inner.lock();
         let mut flags = PTEFlags::R;

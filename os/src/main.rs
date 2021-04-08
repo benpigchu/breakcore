@@ -6,6 +6,7 @@
 #![feature(slice_fill)]
 #![feature(const_in_array_repeat_expressions)]
 #![feature(alloc_error_handler)]
+#![feature(drain_filter)]
 
 global_asm!(include_str!("entry.asm"));
 
