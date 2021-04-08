@@ -87,7 +87,6 @@ script_runner = "@duckscript"
 script = '''
 names = split ${USER_PROGRAMS} " "
 bins_tail = array_join ${names} " --bin "
-echo ${bins_tail}
 bins = concat "--bin " ${bins_tail}
 echo ${bins}
 set_env USER_BINARY "${bins}"
@@ -115,7 +114,6 @@ args = [
 	"@@remove-empty(RELEASE_FLAG)",
 	"@@remove-empty(CARGO_MAKE_CARGO_VERBOSE_FLAGS)",
 	"@@split(CARGO_MAKE_CARGO_BUILD_TEST_FLAGS, )",
-	"--bin",
 	"@@split(USER_BINARY, )"
 ]
 
