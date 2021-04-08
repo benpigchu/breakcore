@@ -118,7 +118,6 @@ impl AddressSpace {
         }
         Some(())
     }
-    #[allow(dead_code)]
     pub fn unmap(&self, base_vpn: VirtPageNum, page_count: usize, user: bool) -> Option<()> {
         let mut inner = self.inner.lock();
         let drained = inner.mappings.drain_filter(|mapping| {
@@ -162,7 +161,6 @@ impl AddressSpace {
         }
         progress
     }
-    #[allow(dead_code)]
     pub fn write(&self, vaddr: VirtAddr, buf: &[u8], user: bool) -> usize {
         let inner = self.inner.lock();
         let mut flags = PTEFlags::W;

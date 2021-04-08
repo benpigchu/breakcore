@@ -79,7 +79,6 @@ lazy_static! {
     };
 }
 
-#[allow(dead_code)]
 pub struct VMObjectPaged {
     frames: Vec<Frame>,
 }

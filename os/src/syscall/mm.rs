@@ -50,3 +50,19 @@ pub fn sys_mmap(start: VirtAddr, len: usize, prot: usize) -> isize {
         None => -1,
     }
 }
+
+pub fn sys_munmap(start: VirtAddr, len: usize) -> isize {
+    let aspace = if let Some(aspace) = TASK_MANAGER.current_aspace() {
+        aspace
+    } else {
+        return -1;
+    };
+    if !start.aligned() {
+        return -1;
+    }
+    let page_count = page_count(len);
+    match aspace.unmap(start.floor_page_num(), page_count, true) {
+        Some(_) => (page_count * PAGE_SIZE) as isize,
+        None => -1,
+    }
+}

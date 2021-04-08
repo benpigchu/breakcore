@@ -21,7 +21,6 @@ pub fn init() {
     set_kernel_trap_entry()
 }
 
-#[allow(dead_code)]
 fn set_kernel_trap_entry() {
     extern "C" {
         fn __ktraps();

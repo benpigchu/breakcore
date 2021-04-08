@@ -14,7 +14,6 @@ const SYSCALL_WRITE: usize = 64;
 const SYSCALL_YIELD: usize = 124;
 const SYSCALL_GET_TIME: usize = 169;
 const SYSCALL_MMAP: usize = 222;
-#[allow(dead_code)]
 const SYSCALL_MUNMAP: usize = 215;
 
 pub fn syscall(syscall_id: usize, args0: usize, args1: usize, args2: usize) -> isize {
@@ -24,6 +23,7 @@ pub fn syscall(syscall_id: usize, args0: usize, args1: usize, args2: usize) -> i
         SYSCALL_YIELD => sys_yield(),
         SYSCALL_GET_TIME => sys_get_time(args0.into()),
         SYSCALL_MMAP => sys_mmap(args0.into(), args1, args2),
+        SYSCALL_MUNMAP => sys_munmap(args0.into(), args1),
         _ => {
             warn!("Unsupported syscall_id: {}", syscall_id);
             sys_exit(-1)
