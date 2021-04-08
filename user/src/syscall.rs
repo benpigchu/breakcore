@@ -1,4 +1,6 @@
-use super::TimeVal;
+use core::isize;
+
+use super::{MMapprot, TimeVal};
 
 pub const STDOUT: usize = 1;
 
@@ -6,6 +8,8 @@ const SYSCALL_WRITE: usize = 64;
 const SYSCALL_EXIT: usize = 93;
 const SYSCALL_YIELD: usize = 124;
 const SYSCALL_GET_TIME: usize = 169;
+const SYSCALL_MMAP: usize = 222;
+const SYSCALL_MUNMAP: usize = 215;
 
 fn syscall(id: usize, arg0: usize, arg1: usize, arg2: usize) -> isize {
     let mut ret: isize;
@@ -35,4 +39,12 @@ pub fn sys_yield() -> isize {
 
 pub fn sys_get_time(time_val: &mut TimeVal) -> isize {
     syscall(SYSCALL_GET_TIME, time_val as *mut _ as usize, 0, 0)
+}
+
+pub fn sys_mmap(start: usize, len: usize, prot: MMapprot) -> isize {
+    syscall(SYSCALL_MMAP, start, len, prot.bits())
+}
+
+pub fn sys_munmap(start: usize, len: usize) -> isize {
+    syscall(SYSCALL_MUNMAP, start, len, 0)
 }

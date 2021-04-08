@@ -7,6 +7,7 @@ pub mod console;
 mod lang;
 mod syscall;
 
+use bitflags::bitflags;
 pub use syscall::*;
 
 #[no_mangle]
@@ -38,4 +39,12 @@ fn clear_bss() {
 pub struct TimeVal {
     pub sec: usize,
     pub usec: usize,
+}
+
+bitflags! {
+    pub struct MMapprot: usize {
+        const READ = 1 << 0;
+        const WRITE = 1 << 1;
+        const EXEC = 1 << 2;
+    }
 }

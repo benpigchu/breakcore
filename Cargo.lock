@@ -62,6 +62,9 @@ dependencies = [
 [[package]]
 name = "breakcore-user"
 version = "0.1.0"
+dependencies = [
+ "bitflags",
+]
 
 [[package]]
 name = "buddy_system_allocator"
