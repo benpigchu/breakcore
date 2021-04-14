@@ -27,6 +27,7 @@ struct Task<SD: Default> {
     kernel_sp: usize,
     status: TaskStatus,
     sched_data: SD,
+    priority: usize,
 }
 
 impl<SD: Default> Task<SD> {
@@ -120,6 +121,12 @@ impl TaskManager {
         drop(inner);
         self.switch_task();
         unreachable!("We should not switch back to exited task!");
+    }
+
+    pub fn set_current_task_priority(&self, priority: usize) {
+        let mut inner = self.inner.borrow_mut();
+        let current = inner.current;
+        inner.tasks[current].priority = priority;
     }
 }
 

@@ -6,6 +6,7 @@ const SYSCALL_WRITE: usize = 64;
 const SYSCALL_EXIT: usize = 93;
 const SYSCALL_YIELD: usize = 124;
 const SYSCALL_GET_TIME: usize = 169;
+const SYSCALL_SET_PRIORITY: usize = 140;
 
 fn syscall(id: usize, arg0: usize, arg1: usize, arg2: usize) -> isize {
     let mut ret: isize;
@@ -35,4 +36,8 @@ pub fn sys_yield() -> isize {
 
 pub fn sys_get_time(time_val: &mut TimeVal) -> isize {
     syscall(SYSCALL_GET_TIME, time_val as *mut _ as usize, 0, 0)
+}
+
+pub fn sys_set_priority(priority: isize) -> isize {
+    syscall(SYSCALL_SET_PRIORITY, priority as usize, 0, 0)
 }

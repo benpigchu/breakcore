@@ -37,7 +37,10 @@ impl Scheduler for StrideScheduler {
         current_candidate
     }
     fn proc_tick(&self, task: &Task<Self::Data>) {
-        task.sched_data.stride.update(|f| f.wrapping_add(1));
+        let priority = task.priority.clamp(2, isize::MAX as usize);
+        task.sched_data
+            .stride
+            .update(|f| f.wrapping_add(usize::MAX / priority));
     }
 }
 
