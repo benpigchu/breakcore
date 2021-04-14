@@ -6,6 +6,8 @@ use log::*;
 
 mod context;
 pub use context::*;
+mod sched;
+use sched::{create_scheduler, Scheduler, SchedulerImpl};
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum TaskStatus {
@@ -15,12 +17,14 @@ pub enum TaskStatus {
     Exited,
 }
 
-struct Task {
+#[derive(Clone, Copy)]
+struct Task<SD: Copy> {
     kernel_sp: usize,
     status: TaskStatus,
+    sched_data: SD,
 }
 
-impl Task {
+impl<SD: Copy> Task<SD> {
     fn get_kernel_sp_ptr(&self) -> usize {
         &self.kernel_sp as *const usize as usize
     }
@@ -32,7 +36,8 @@ pub struct TaskManager {
 }
 pub struct TaskManagerInner {
     current: usize,
-    tasks: [Task; MAX_APP_NUM],
+    scheduler: SchedulerImpl,
+    tasks: [Task<<SchedulerImpl as Scheduler>::Data>; MAX_APP_NUM],
 }
 
 unsafe impl Sync for TaskManager {}
@@ -42,9 +47,11 @@ lazy_static! {
         app_num: APP_MANAGER.app_num,
         inner: RefCell::new(TaskManagerInner {
             current: 0,
-            tasks: [Task {
+            scheduler: create_scheduler(),
+            tasks: [Task::<_> {
                 kernel_sp: 0,
-                status: TaskStatus::UnInit
+                status: TaskStatus::UnInit,
+                sched_data: Default::default(),
             }; MAX_APP_NUM]
         }),
     };
@@ -52,8 +59,9 @@ lazy_static! {
 
 impl TaskManager {
     pub fn launch_first_task(&self) -> ! {
+        let task_id = self.find_next_task().unwrap();
         let mut inner = self.inner.borrow_mut();
-        inner.init_task(0);
+        inner.init_task(task_id);
         let next_kernel_sp_ptr = inner.tasks[0].get_kernel_sp_ptr();
         let current_kernel_sp = 0usize;
         let current_kernel_sp_ptr = &current_kernel_sp as *const usize as usize;
@@ -79,17 +87,8 @@ impl TaskManager {
     }
 
     fn find_next_task(&self) -> Option<usize> {
-        let inner = self.inner.borrow();
-        for i in 0..self.app_num {
-            let id = (i + inner.current + 1) % self.app_num;
-            if matches!(
-                inner.tasks[id].status,
-                TaskStatus::UnInit | TaskStatus::Ready | TaskStatus::Running
-            ) {
-                return Some(id);
-            }
-        }
-        None
+        let mut inner = self.inner.borrow_mut();
+        return inner.scheduler.pick_next(&inner.tasks[0..self.app_num]);
     }
 
     pub fn switch_task(&self) {
