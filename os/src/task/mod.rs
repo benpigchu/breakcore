@@ -16,15 +16,20 @@ pub enum TaskStatus {
     Running,
     Exited,
 }
+impl Default for TaskStatus {
+    fn default() -> Self {
+        TaskStatus::UnInit
+    }
+}
 
-#[derive(Clone, Copy)]
-struct Task<SD: Copy> {
+#[derive(Default)]
+struct Task<SD: Default> {
     kernel_sp: usize,
     status: TaskStatus,
     sched_data: SD,
 }
 
-impl<SD: Copy> Task<SD> {
+impl<SD: Default> Task<SD> {
     fn get_kernel_sp_ptr(&self) -> usize {
         &self.kernel_sp as *const usize as usize
     }
@@ -48,19 +53,18 @@ lazy_static! {
         inner: RefCell::new(TaskManagerInner {
             current: 0,
             scheduler: create_scheduler(),
-            tasks: [Task::<_> {
-                kernel_sp: 0,
-                status: TaskStatus::UnInit,
-                sched_data: Default::default(),
-            }; MAX_APP_NUM]
+            tasks: Default::default()
         }),
     };
 }
 
 impl TaskManager {
     pub fn launch_first_task(&self) -> ! {
-        let task_id = self.find_next_task().unwrap();
         let mut inner = self.inner.borrow_mut();
+        let task_id = inner
+            .scheduler
+            .pick_next(&inner.tasks[0..self.app_num])
+            .unwrap();
         inner.init_task(task_id);
         let next_kernel_sp_ptr = inner.tasks[0].get_kernel_sp_ptr();
         let current_kernel_sp = 0usize;
@@ -86,15 +90,11 @@ impl TaskManager {
         }
     }
 
-    fn find_next_task(&self) -> Option<usize> {
-        let mut inner = self.inner.borrow_mut();
-        return inner.scheduler.pick_next(&inner.tasks[0..self.app_num]);
-    }
-
     pub fn switch_task(&self) {
-        if let Some(next) = self.find_next_task() {
-            let mut inner = self.inner.borrow_mut();
-            let current = inner.current;
+        let mut inner = self.inner.borrow_mut();
+        let current = inner.current;
+        inner.scheduler.proc_tick(&inner.tasks[current]);
+        if let Some(next) = inner.scheduler.pick_next(&inner.tasks[0..self.app_num]) {
             inner.current = next;
             if inner.tasks[current].status == TaskStatus::Running {
                 inner.tasks[current].status = TaskStatus::Ready
@@ -106,6 +106,7 @@ impl TaskManager {
             drop(inner);
             self.switch_to_task(current, next)
         } else {
+            drop(inner);
             info!("No more app!");
             shutdown()
         }

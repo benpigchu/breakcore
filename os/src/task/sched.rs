@@ -1,43 +1,48 @@
 use super::{Task, TaskStatus};
 use core::cell::Cell;
-pub trait Scheduler {
-    type Data: Default + Copy;
+pub(super) trait Scheduler {
+    type Data: Default;
     fn pick_next(&self, tasks: &[Task<Self::Data>]) -> Option<usize>;
-    fn proc_tick(&self, tasks: Task<Self::Data>);
+    fn proc_tick(&self, task: &Task<Self::Data>);
 }
 
-pub struct StrideScheduler {
-    last: Cell<Option<usize>>,
-}
-
-#[derive(Default, Clone, Copy)]
-pub struct StrideSchedulerData {
-    stride: usize,
+pub(super) struct StrideScheduler;
+#[derive(Default)]
+pub(super) struct StrideSchedulerData {
+    stride: Cell<usize>,
 }
 
 impl Scheduler for StrideScheduler {
     type Data = StrideSchedulerData;
     fn pick_next(&self, tasks: &[Task<Self::Data>]) -> Option<usize> {
-        let base = self.last.get().map(|last| last + 1).unwrap_or(0);
-        for i in 0..tasks.len() {
-            let id = (i + base) % tasks.len();
+        let mut current_candidate = None;
+        let mut current_min: Option<usize> = None;
+        for (id, task) in tasks.iter().enumerate() {
             if matches!(
-                tasks[id].status,
+                task.status,
                 TaskStatus::UnInit | TaskStatus::Ready | TaskStatus::Running
             ) {
-                self.last.replace(Some(id));
-                return Some(id);
+                let stride = task.sched_data.stride.get();
+                let update = if let Some(min) = current_min {
+                    (min.wrapping_sub(stride) as isize) > 0
+                } else {
+                    true
+                };
+                if update {
+                    current_candidate = Some(id);
+                    current_min = Some(stride)
+                }
             }
         }
-        None
+        current_candidate
     }
-    fn proc_tick(&self, tasks: Task<Self::Data>) {}
+    fn proc_tick(&self, task: &Task<Self::Data>) {
+        task.sched_data.stride.update(|f| f.wrapping_add(1));
+    }
 }
 
-pub type SchedulerImpl = StrideScheduler;
+pub(super) type SchedulerImpl = StrideScheduler;
 
-pub fn create_scheduler() -> SchedulerImpl {
-    StrideScheduler {
-        last: Cell::new(None),
-    }
+pub(super) fn create_scheduler() -> SchedulerImpl {
+    StrideScheduler
 }

@@ -5,6 +5,7 @@
 #![feature(panic_info_message)]
 #![feature(slice_fill)]
 #![feature(const_in_array_repeat_expressions)]
+#![feature(cell_update)]
 
 global_asm!(include_str!("entry.asm"));
 
