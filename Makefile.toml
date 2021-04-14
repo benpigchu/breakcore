@@ -8,7 +8,7 @@ PROFILE_FOLDER = { source = "${CARGO_MAKE_PROFILE}", default_value = "debug", ma
 KERNEL_ELF = "target/riscv64gc-unknown-none-elf/${PROFILE_FOLDER}/breakcore-os"
 KERNEL_BIN = "${KERNEL_ELF}.bin"
 KERNEL_DEBUGINFO = "${KERNEL_ELF}.debuginfo"
-USER_PROGRAMS = "power_3 power_5 power_7 sleep"
+USER_PROGRAMS = "priority_2 priority_4 priority_6 priority_8 priority_10"
 CARGO_MAKE_EXTEND_WORKSPACE_MAKEFILE = true
 
 [tasks.default]

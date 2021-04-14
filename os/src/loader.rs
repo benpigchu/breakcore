@@ -85,6 +85,9 @@ impl AppManager {
         }
     }
     pub fn load_app(&self, id: usize) -> LoadedApp {
+        if id >= self.app_num {
+            panic!("Out of range app id!")
+        }
         let (app_start_address, app_end_address) = self.app_span[id];
         let app_bin_data = unsafe {
             slice::from_raw_parts(
