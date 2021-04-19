@@ -15,6 +15,7 @@ pub enum TaskStatus {
     Exited,
 }
 
+#[derive(Copy, Clone)]
 struct Task {
     kernel_sp: usize,
     status: TaskStatus,
