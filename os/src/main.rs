@@ -3,7 +3,6 @@
 #![feature(global_asm)]
 #![feature(llvm_asm)]
 #![feature(panic_info_message)]
-#![feature(slice_fill)]
 
 global_asm!(include_str!("entry.asm"));
 
