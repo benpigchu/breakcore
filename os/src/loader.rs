@@ -16,11 +16,14 @@ lazy_static! {
         .and_then(|s| usize::from_str_radix(s.trim_start_matches("0x"), 16).ok())
         .unwrap_or(0x00020000);
 }
+
+#[derive(Clone, Copy)]
 #[repr(align(4096))]
 struct KernelStack {
     data: [u8; KERNEL_STACK_SIZE],
 }
 
+#[derive(Clone, Copy)]
 #[repr(align(4096))]
 struct UserStack {
     data: [u8; USER_STACK_SIZE],
