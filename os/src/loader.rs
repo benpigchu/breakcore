@@ -144,13 +144,11 @@ impl AppManager {
                         panic!("ELF LOAD segment start address not page aligned")
                     }
                     let vmo = VMObjectPaged::new(page_count(mem_size)).unwrap();
-                    let wrote_size = vmo.write(
-                        0,
-                        program_header
-                            .data_as_array(LittleEndian, app_bin_bytes)
-                            .unwrap(),
-                    );
-                    assert_eq!(mem_size, wrote_size);
+                    let buf = program_header
+                        .data_as_array(LittleEndian, app_bin_bytes)
+                        .unwrap();
+                    let wrote_size = vmo.write(0, buf);
+                    assert_eq!(buf.len(), wrote_size);
                     aspace
                         .map(
                             vmo,
