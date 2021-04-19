@@ -1,4 +1,5 @@
 use crate::syscall::{sys_write, STDOUT};
+use alloc::string::ToString;
 use core::fmt::{self, Write};
 
 struct Stdout;
@@ -10,8 +11,12 @@ impl Write for Stdout {
     }
 }
 
-pub fn print(args: fmt::Arguments) {
+pub fn print_no_heap(args: fmt::Arguments) {
     Stdout.write_fmt(args).unwrap();
+}
+
+pub fn print(args: fmt::Arguments) {
+    Stdout.write_str(&args.to_string()).unwrap();
 }
 
 #[macro_export]

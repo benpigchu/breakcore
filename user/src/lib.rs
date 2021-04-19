@@ -1,9 +1,13 @@
 #![no_std]
 #![feature(linkage)]
 #![feature(llvm_asm)]
+#![feature(alloc_error_handler)]
+
+extern crate alloc;
 
 #[macro_use]
 pub mod console;
+mod heap;
 mod lang;
 mod syscall;
 
@@ -14,6 +18,7 @@ pub use syscall::*;
 #[link_section = ".text.entry"]
 pub extern "C" fn _start() -> ! {
     clear_bss();
+    heap::init();
     let exit_code = main();
     sys_exit(exit_code)
 }

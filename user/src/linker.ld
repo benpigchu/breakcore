@@ -24,6 +24,8 @@ SECTIONS
         *(.bss .bss.*)
         end_bss = .;
     }
+    . = ALIGN(4K);
+    start_heap = .;
     /DISCARD/ : {
         *(.eh_frame)
         *(.debug*)
