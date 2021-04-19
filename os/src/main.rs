@@ -4,7 +4,6 @@
 #![feature(llvm_asm)]
 #![feature(panic_info_message)]
 #![feature(slice_fill)]
-#![feature(const_in_array_repeat_expressions)]
 #![feature(cell_update)]
 #![feature(alloc_error_handler)]
 #![feature(drain_filter)]
