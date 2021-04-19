@@ -3,7 +3,6 @@
 #![feature(global_asm)]
 #![feature(llvm_asm)]
 #![feature(panic_info_message)]
-#![feature(slice_fill)]
 #![feature(cell_update)]
 #![feature(alloc_error_handler)]
 #![feature(drain_filter)]
