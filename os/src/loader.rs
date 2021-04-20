@@ -44,9 +44,16 @@ fn init_stack(kstack: &mut KernelStack, ustack_sp: usize, pc: usize, user_satp: 
     )
 }
 
+#[derive(Default)]
+struct AppInfo {
+    start: usize,
+    end: usize,
+    name: &'static str,
+}
+
 pub struct AppManager {
     pub app_num: usize,
-    app_span: [(usize, usize); MAX_APP_NUM],
+    apps: [AppInfo; MAX_APP_NUM],
 }
 
 unsafe impl Sync for AppManager {}
@@ -61,16 +68,23 @@ lazy_static! {
         if app_num > MAX_APP_NUM {
             panic!("Too many apps!");
         }
-        let mut app_span = [(0, 0); MAX_APP_NUM];
-        for (i, span) in app_span.iter_mut().enumerate().take(app_num) {
-            *span = unsafe {
-                (
-                    app_list.add(1 + 2 * i).read_volatile(),
-                    app_list.add(2 + 2 * i).read_volatile(),
-                )
+        let mut apps: [AppInfo; MAX_APP_NUM] = Default::default();
+        for (i, app) in apps.iter_mut().enumerate().take(app_num) {
+            *app = unsafe {
+                let app_name_ptr = app_list.add(1 + 3 * i).read_volatile() as *const u8;
+                let mut app_name_len = 0;
+                while app_name_ptr.add(app_name_len).read_volatile() != 0 {
+                    app_name_len += 1;
+                }
+                let app_name_data = slice::from_raw_parts(app_name_ptr, app_name_len);
+                AppInfo {
+                    start: app_list.add(2 + 3 * i).read_volatile(),
+                    end: app_list.add(3 + 3 * i).read_volatile(),
+                    name: core::str::from_utf8(app_name_data).unwrap(),
+                }
             }
         }
-        AppManager { app_num, app_span }
+        AppManager { app_num, apps }
     };
 }
 
@@ -78,9 +92,10 @@ impl AppManager {
     pub fn print_info(&self) {
         info!("app_num: {}", APP_MANAGER.app_num);
         for i in 0..APP_MANAGER.app_num {
+            info!("    {}: {}", i, APP_MANAGER.apps[i].name);
             info!(
-                "    {}: {:#x?}-{:#x?}",
-                i, APP_MANAGER.app_span[i].0, APP_MANAGER.app_span[i].1
+                "        {:#x?}-{:#x?}",
+                APP_MANAGER.apps[i].start, APP_MANAGER.apps[i].end
             );
         }
     }
@@ -88,7 +103,9 @@ impl AppManager {
         if id >= self.app_num {
             panic!("Out of range app id!")
         }
-        let (app_start_address, app_end_address) = self.app_span[id];
+        let app = &self.apps[id];
+        let app_start_address = app.start;
+        let app_end_address = app.end;
         let app_bin_data = unsafe {
             slice::from_raw_parts(
                 app_start_address as *const u8,
@@ -106,7 +123,7 @@ impl AppManager {
         let app_bin_bytes = Bytes(app_bin_data);
         // we are using little endian elf64 format
         let file_header = FileHeader64::<LittleEndian>::parse(app_bin_bytes).unwrap();
-        info!("Parsing ELF...");
+        info!("Parsing ELF for {}...", app.name);
         assert!(file_header.is_little_endian());
         assert!(file_header.is_class_64());
         assert_eq!(file_header.e_machine(LittleEndian), EM_RISCV);

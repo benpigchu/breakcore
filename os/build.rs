@@ -3,6 +3,7 @@ use std::fs::OpenOptions;
 use std::io::Write;
 
 fn main() {
+    println!("cargo:rerun-if-changed=../user/src");
     println!("cargo:rerun-if-changed=../user/src/bin/");
     gen_embed_app_asm()
 }
@@ -32,10 +33,11 @@ app_list:
         writeln!(
             f,
             r#"
+    .quad app_{}_name
     .quad app_{}_start
     .quad app_{}_end
     "#,
-            i, i
+            i, i, i
         )
         .unwrap();
     }
@@ -51,13 +53,17 @@ app_list:
             r#"
     .balign 16
     .section .data
+    .global app_{}_name
     .global app_{}_start
     .global app_{}_end
+app_{}_name:
+    .string "{}"
+    .balign 16
 app_{}_start:
     .incbin "{}"
 app_{}_end:
     "#,
-            i, i, i, app_bin_path, i
+            i, i, i, i, name, i, app_bin_path, i
         )
         .unwrap();
     }
