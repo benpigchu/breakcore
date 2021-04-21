@@ -156,7 +156,7 @@ impl Drop for PageTable {
                     .unwrap()
             };
             for pte in ptes {
-                if (pte.flags() & PTEFlags::RWX).is_empty() {
+                if pte.valid() && (pte.flags() & PTEFlags::RWX).is_empty() {
                     dealloc_ptes_page(pte.ppn())
                 }
             }
