@@ -75,10 +75,12 @@ impl TaskManager {
             .pick_next(&inner.tasks[0..self.app_num])
             .unwrap();
         inner.init_task(task_id);
-        let next_kernel_sp_ptr = inner.tasks[task_id].inner.lock().get_kernel_sp_ptr();
+        let mut task_inner = inner.tasks[task_id].inner.lock();
+        let next_kernel_sp_ptr = task_inner.get_kernel_sp_ptr();
         let current_kernel_sp = 0usize;
         let current_kernel_sp_ptr = &current_kernel_sp as *const usize as usize;
-        inner.tasks[task_id].inner.lock().status = TaskStatus::Running;
+        task_inner.status = TaskStatus::Running;
+        drop(task_inner);
         drop(inner);
         unsafe {
             __switch(current_kernel_sp_ptr, next_kernel_sp_ptr);
@@ -105,13 +107,17 @@ impl TaskManager {
         inner.scheduler.proc_tick(&inner.tasks[current]);
         if let Some(next) = inner.scheduler.pick_next(&inner.tasks[0..self.app_num]) {
             inner.current = next;
-            if inner.tasks[current].inner.lock().status == TaskStatus::Running {
-                inner.tasks[current].inner.lock().status = TaskStatus::Ready
-            }
             if inner.tasks[next].inner.lock().status == TaskStatus::UnInit {
                 inner.init_task(next);
             }
-            inner.tasks[next].inner.lock().status = TaskStatus::Running;
+            let mut current_inner = inner.tasks[current].inner.lock();
+            if current_inner.status == TaskStatus::Running {
+                current_inner.status = TaskStatus::Ready
+            }
+            drop(current_inner);
+            let mut next_inner = inner.tasks[next].inner.lock();
+            next_inner.status = TaskStatus::Running;
+            drop(next_inner);
             drop(inner);
             self.switch_to_task(current, next)
         } else {
@@ -153,7 +159,8 @@ impl TaskManagerInner {
     fn init_task(&mut self, id: usize) {
         info!("load app: {}", id);
         let loaded_app = APP_MANAGER.load_app(id);
-        self.tasks[id].inner.lock().kernel_sp = loaded_app.kernel_sp;
-        self.tasks[id].inner.lock().aspace = Some(loaded_app.aspace)
+        let mut task_inner = self.tasks[id].inner.lock();
+        task_inner.kernel_sp = loaded_app.kernel_sp;
+        task_inner.aspace = Some(loaded_app.aspace)
     }
 }

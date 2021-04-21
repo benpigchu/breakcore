@@ -18,11 +18,12 @@ impl Scheduler for StrideScheduler {
         let mut current_candidate = None;
         let mut current_min: Option<usize> = None;
         for (id, task) in tasks.iter().enumerate() {
+            let task_inner = task.inner.lock();
             if matches!(
-                task.inner.lock().status,
+                task_inner.status,
                 TaskStatus::UnInit | TaskStatus::Ready | TaskStatus::Running
             ) {
-                let stride = task.inner.lock().sched_data.stride.get();
+                let stride = task_inner.sched_data.stride.get();
                 let update = if let Some(min) = current_min {
                     (min.wrapping_sub(stride) as isize) > 0
                 } else {
@@ -37,9 +38,9 @@ impl Scheduler for StrideScheduler {
         current_candidate
     }
     fn proc_tick(&self, task: &Task<Self::Data>) {
-        let priority = task.inner.lock().priority.clamp(2, isize::MAX as usize);
-        task.inner
-            .lock()
+        let task_inner = task.inner.lock();
+        let priority = task_inner.priority.clamp(2, isize::MAX as usize);
+        task_inner
             .sched_data
             .stride
             .update(|f| f.wrapping_add(usize::MAX / priority));
