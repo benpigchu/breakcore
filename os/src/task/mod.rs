@@ -2,6 +2,7 @@ use crate::loader::*;
 use crate::mm::aspace::AddressSpace;
 use crate::sbi::shutdown;
 use alloc::sync::Arc;
+use alloc::vec::Vec;
 use lazy_static::*;
 use log::*;
 use spin::Mutex;
@@ -13,18 +14,11 @@ use sched::{create_scheduler, Scheduler, SchedulerImpl};
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum TaskStatus {
-    UnInit,
     Ready,
     Running,
     Exited,
 }
-impl Default for TaskStatus {
-    fn default() -> Self {
-        TaskStatus::UnInit
-    }
-}
 
-#[derive(Default)]
 struct TaskInner<SD: Default> {
     kernel_sp: usize,
     status: TaskStatus,
@@ -33,7 +27,6 @@ struct TaskInner<SD: Default> {
     priority: usize,
 }
 
-#[derive(Default)]
 struct Task<SD: Default> {
     inner: Mutex<TaskInner<SD>>,
 }
@@ -44,6 +37,22 @@ impl<SD: Default> TaskInner<SD> {
     }
 }
 
+impl<SD: Default> Task<SD> {
+    fn new(app_id: usize) -> Arc<Self> {
+        info!("task from app: {}", app_id);
+        let loaded_app = APP_MANAGER.load_app(app_id);
+        Arc::new(Self {
+            inner: Mutex::new(TaskInner::<SD> {
+                kernel_sp: loaded_app.kernel_sp,
+                status: TaskStatus::Ready,
+                aspace: Some(loaded_app.aspace),
+                sched_data: Default::default(),
+                priority: 2,
+            }),
+        })
+    }
+}
+
 pub struct TaskManager {
     app_num: usize,
     inner: Mutex<TaskManagerInner>,
@@ -51,10 +60,8 @@ pub struct TaskManager {
 pub struct TaskManagerInner {
     current: usize,
     scheduler: SchedulerImpl,
-    tasks: [Task<<SchedulerImpl as Scheduler>::Data>; MAX_APP_NUM],
+    tasks: Vec<Arc<Task<<SchedulerImpl as Scheduler>::Data>>>,
 }
-
-unsafe impl Sync for TaskManager {}
 
 lazy_static! {
     pub static ref TASK_MANAGER: TaskManager = TaskManager {
@@ -62,7 +69,7 @@ lazy_static! {
         inner: Mutex::new(TaskManagerInner {
             current: 0,
             scheduler: create_scheduler(),
-            tasks: Default::default()
+            tasks: Vec::new()
         }),
     };
 }
@@ -70,11 +77,13 @@ lazy_static! {
 impl TaskManager {
     pub fn launch_first_task(&self) -> ! {
         let mut inner = self.inner.lock();
+        for id in 0..self.app_num {
+            inner.tasks.push(Task::new(id))
+        }
         let task_id = inner
             .scheduler
             .pick_next(&inner.tasks[0..self.app_num])
             .unwrap();
-        inner.init_task(task_id);
         let mut task_inner = inner.tasks[task_id].inner.lock();
         let next_kernel_sp_ptr = task_inner.get_kernel_sp_ptr();
         let current_kernel_sp = 0usize;
@@ -107,9 +116,6 @@ impl TaskManager {
         inner.scheduler.proc_tick(&inner.tasks[current]);
         if let Some(next) = inner.scheduler.pick_next(&inner.tasks[0..self.app_num]) {
             inner.current = next;
-            if inner.tasks[next].inner.lock().status == TaskStatus::UnInit {
-                inner.init_task(next);
-            }
             let mut current_inner = inner.tasks[current].inner.lock();
             if current_inner.status == TaskStatus::Running {
                 current_inner.status = TaskStatus::Ready
@@ -152,15 +158,5 @@ impl TaskManager {
         let inner = self.inner.lock();
         let current = inner.current;
         inner.tasks[current].inner.lock().priority = priority;
-    }
-}
-
-impl TaskManagerInner {
-    fn init_task(&mut self, id: usize) {
-        info!("load app: {}", id);
-        let loaded_app = APP_MANAGER.load_app(id);
-        let mut task_inner = self.tasks[id].inner.lock();
-        task_inner.kernel_sp = loaded_app.kernel_sp;
-        task_inner.aspace = Some(loaded_app.aspace)
     }
 }

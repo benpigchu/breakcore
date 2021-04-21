@@ -1,9 +1,10 @@
 use super::{Task, TaskStatus};
+use alloc::sync::Arc;
 use core::cell::Cell;
 pub(super) trait Scheduler {
     type Data: Default;
-    fn pick_next(&self, tasks: &[Task<Self::Data>]) -> Option<usize>;
-    fn proc_tick(&self, task: &Task<Self::Data>);
+    fn pick_next(&self, tasks: &[Arc<Task<Self::Data>>]) -> Option<usize>;
+    fn proc_tick(&self, task: &Arc<Task<Self::Data>>);
 }
 
 pub(super) struct StrideScheduler;
@@ -14,15 +15,12 @@ pub(super) struct StrideSchedulerData {
 
 impl Scheduler for StrideScheduler {
     type Data = StrideSchedulerData;
-    fn pick_next(&self, tasks: &[Task<Self::Data>]) -> Option<usize> {
+    fn pick_next(&self, tasks: &[Arc<Task<Self::Data>>]) -> Option<usize> {
         let mut current_candidate = None;
         let mut current_min: Option<usize> = None;
         for (id, task) in tasks.iter().enumerate() {
             let task_inner = task.inner.lock();
-            if matches!(
-                task_inner.status,
-                TaskStatus::UnInit | TaskStatus::Ready | TaskStatus::Running
-            ) {
+            if matches!(task_inner.status, TaskStatus::Ready | TaskStatus::Running) {
                 let stride = task_inner.sched_data.stride.get();
                 let update = if let Some(min) = current_min {
                     (min.wrapping_sub(stride) as isize) > 0
@@ -37,7 +35,7 @@ impl Scheduler for StrideScheduler {
         }
         current_candidate
     }
-    fn proc_tick(&self, task: &Task<Self::Data>) {
+    fn proc_tick(&self, task: &Arc<Task<Self::Data>>) {
         let task_inner = task.inner.lock();
         let priority = task_inner.priority.clamp(2, isize::MAX as usize);
         task_inner
