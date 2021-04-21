@@ -67,10 +67,10 @@ impl TaskManager {
             .pick_next(&inner.tasks[0..self.app_num])
             .unwrap();
         inner.init_task(task_id);
-        let next_kernel_sp_ptr = inner.tasks[0].get_kernel_sp_ptr();
+        let next_kernel_sp_ptr = inner.tasks[task_id].get_kernel_sp_ptr();
         let current_kernel_sp = 0usize;
         let current_kernel_sp_ptr = &current_kernel_sp as *const usize as usize;
-        inner.tasks[0].status = TaskStatus::Running;
+        inner.tasks[task_id].status = TaskStatus::Running;
         drop(inner);
         unsafe {
             __switch(current_kernel_sp_ptr, next_kernel_sp_ptr);
