@@ -1,6 +1,5 @@
 use super::{Task, TaskStatus};
 use alloc::sync::Arc;
-use core::cell::Cell;
 pub(super) trait Scheduler {
     type Data: Default;
     fn pick_next(&self, tasks: &[Arc<Task<Self::Data>>]) -> Option<usize>;
@@ -10,7 +9,7 @@ pub(super) trait Scheduler {
 pub(super) struct StrideScheduler;
 #[derive(Default)]
 pub(super) struct StrideSchedulerData {
-    stride: Cell<usize>,
+    stride: usize,
 }
 
 impl Scheduler for StrideScheduler {
@@ -21,7 +20,7 @@ impl Scheduler for StrideScheduler {
         for (id, task) in tasks.iter().enumerate() {
             let task_inner = task.inner.lock();
             if matches!(task_inner.status, TaskStatus::Ready | TaskStatus::Running) {
-                let stride = task_inner.sched_data.stride.get();
+                let stride = task_inner.sched_data.stride;
                 let update = if let Some(min) = current_min {
                     (min.wrapping_sub(stride) as isize) > 0
                 } else {
@@ -36,12 +35,10 @@ impl Scheduler for StrideScheduler {
         current_candidate
     }
     fn proc_tick(&self, task: &Arc<Task<Self::Data>>) {
-        let task_inner = task.inner.lock();
+        let mut task_inner = task.inner.lock();
         let priority = task_inner.priority.clamp(2, isize::MAX as usize);
-        task_inner
-            .sched_data
-            .stride
-            .update(|f| f.wrapping_add(usize::MAX / priority));
+        let stride = &mut task_inner.sched_data.stride;
+        *stride = stride.wrapping_add(usize::MAX / priority);
     }
 }
 
