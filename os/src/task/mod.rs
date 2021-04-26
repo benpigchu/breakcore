@@ -21,6 +21,7 @@ pub enum TaskStatus {
 
 struct TaskInner<SD: Default> {
     kernel_sp: usize,
+    trap_cx_ptr: usize,
     status: TaskStatus,
     aspace: Option<Arc<AddressSpace>>,
     sched_data: SD,
@@ -44,6 +45,7 @@ impl<SD: Default> Task<SD> {
         Arc::new(Self {
             inner: Mutex::new(TaskInner::<SD> {
                 kernel_sp: loaded_app.kernel_sp,
+                trap_cx_ptr: loaded_app.trap_cx_ptr,
                 status: TaskStatus::Ready,
                 aspace: Some(loaded_app.aspace),
                 sched_data: Default::default(),
@@ -158,5 +160,12 @@ impl TaskManager {
         let inner = self.inner.lock();
         let current = inner.current;
         inner.tasks[current].inner.lock().priority = priority;
+    }
+
+    pub fn current_cx_ptr(&self) -> usize {
+        let inner = self.inner.lock();
+        let current = inner.current;
+        let trap_cx_ptr = inner.tasks[current].inner.lock().trap_cx_ptr;
+        trap_cx_ptr
     }
 }
