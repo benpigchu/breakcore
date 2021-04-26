@@ -1,5 +1,5 @@
 use crate::mm::addr::*;
-use crate::mm::aspace::{AddressSpace, KERNEL_ASPACE, KSTACK_BASE_VPN, TRAMPOLINE_BASE_VPN};
+use crate::mm::aspace::{AddressSpace, KERNEL_ASPACE, TRAMPOLINE_BASE_VPN, USER_CX_BASE_VPN};
 use crate::mm::vmo::{VMObject, VMObjectPaged, TRAMPOLINE};
 use crate::mm::PTEFlags;
 use crate::task::TaskContext;
@@ -23,13 +23,9 @@ impl KernelStack {
     fn get_sp(&self) -> usize {
         self.data.as_ptr() as usize + KERNEL_STACK_SIZE
     }
-    pub fn push_context(&self, trap_cx: TrapContext, task_cx: TaskContext) -> usize {
-        let trap_cx_ptr = (self.get_sp() - core::mem::size_of::<TrapContext>()) as *mut TrapContext;
-        unsafe {
-            *trap_cx_ptr = trap_cx;
-        }
+    pub fn push_context(&self, task_cx: TaskContext) -> usize {
         let task_cx_ptr =
-            (trap_cx_ptr as usize - core::mem::size_of::<TaskContext>()) as *mut TaskContext;
+            (self.get_sp() as usize - core::mem::size_of::<TaskContext>()) as *mut TaskContext;
         unsafe {
             *task_cx_ptr = task_cx;
         }
@@ -37,11 +33,8 @@ impl KernelStack {
     }
 }
 
-fn init_stack(kstack: &mut KernelStack, ustack_sp: usize, pc: usize, user_satp: usize) -> usize {
-    kstack.push_context(
-        TrapContext::new(pc, ustack_sp, user_satp, kstack.get_sp()),
-        TaskContext::goto_launch(),
-    )
+fn init_stack(kstack: &mut KernelStack) -> usize {
+    kstack.push_context(TaskContext::goto_launch())
 }
 
 pub struct AppManager {
@@ -193,13 +186,6 @@ impl AppManager {
         );
         // map kernel stack
         let kstack_vmo = VMObjectPaged::new(page_count(KERNEL_STACK_SIZE)).unwrap();
-        aspace.map(
-            kstack_vmo.clone(),
-            0,
-            *KSTACK_BASE_VPN,
-            None,
-            PTEFlags::R | PTEFlags::W,
-        );
         let vskstack =
             usize::from(TRAMPOLINE_BASE_VPN.addr()) - (KERNEL_STACK_SIZE + PAGE_SIZE) * (id + 1);
         KERNEL_ASPACE.map(
@@ -211,16 +197,35 @@ impl AppManager {
         );
         let kstack = unsafe { (vskstack as *mut KernelStack).as_mut().unwrap() };
         let token = aspace.token();
-        let kernel_sp = init_stack(
-            kstack,
-            usize::from(vsstack_pn.addr()) + USER_STACK_SIZE,
+        let kernel_sp = init_stack(kstack);
+        // map user context
+        let user_cx_vmo = VMObjectPaged::new(1).unwrap();
+        let trap_cx_ptr = usize::from(user_cx_vmo.get_page(0).unwrap().addr());
+        let user_cx = TrapContext::new(
             entry,
+            usize::from(vsstack_pn.addr()) + USER_STACK_SIZE,
             token,
+            kstack.get_sp(),
+            trap_cx_ptr,
+        );
+        let user_cx_buf = unsafe {
+            slice::from_raw_parts(
+                &user_cx as *const _ as *const u8,
+                core::mem::size_of::<TrapContext>(),
+            )
+        };
+        user_cx_vmo.write(0, user_cx_buf);
+        aspace.map(
+            user_cx_vmo,
+            0,
+            *USER_CX_BASE_VPN,
+            None,
+            PTEFlags::R | PTEFlags::W,
         );
         LoadedApp {
             aspace,
             kernel_sp,
-            trap_cx_ptr: (kstack.get_sp() - core::mem::size_of::<TrapContext>()),
+            trap_cx_ptr,
         }
     }
 }

@@ -1,9 +1,8 @@
 use riscv::register::sstatus::{self, Sstatus, SPP};
 
 use super::trap_handler;
-use crate::loader::KERNEL_STACK_SIZE;
 use crate::mm::addr::*;
-use crate::mm::aspace::{KERNEL_ASPACE, KSTACK_BASE_VPN};
+use crate::mm::aspace::{KERNEL_ASPACE, USER_CX_BASE_VPN};
 #[repr(C)]
 #[derive(Debug)]
 pub struct TrapContext {
@@ -22,7 +21,13 @@ impl TrapContext {
     pub fn set_sp(&mut self, sp: usize) {
         self.x[2] = sp;
     }
-    pub fn new(pc: usize, sp: usize, user_satp: usize, kernel_kstack: usize) -> Self {
+    pub fn new(
+        pc: usize,
+        sp: usize,
+        user_satp: usize,
+        kernel_kstack: usize,
+        kernel_cx_addr: usize,
+    ) -> Self {
         let mut sstatus = sstatus::read();
         sstatus.set_spp(SPP::User);
         let mut cx = Self {
@@ -32,10 +37,9 @@ impl TrapContext {
             trap_handler_address: trap_handler as usize,
             user_satp,
             kernel_satp: KERNEL_ASPACE.token(),
-            user_cx_addr: usize::from(KSTACK_BASE_VPN.addr()) + KERNEL_STACK_SIZE
-                - core::mem::size_of::<TrapContext>(),
-            kernel_cx_addr: kernel_kstack - core::mem::size_of::<TrapContext>(),
-            kernel_sp: kernel_kstack - core::mem::size_of::<TrapContext>(),
+            user_cx_addr: usize::from(USER_CX_BASE_VPN.addr()),
+            kernel_cx_addr,
+            kernel_sp: kernel_kstack,
         };
         cx.set_sp(sp);
         cx
