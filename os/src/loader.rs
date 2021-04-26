@@ -92,7 +92,7 @@ impl AppManager {
             );
         }
     }
-    pub fn load_app(&self, id: usize) -> LoadedApp {
+    pub fn load_elf(&self, id: usize, aspace: &Arc<AddressSpace>) -> LoadedElf {
         if id >= self.app_num {
             panic!("Out of range app id!")
         }
@@ -105,8 +105,6 @@ impl AppManager {
                 app_end_address - app_start_address,
             )
         };
-        // TODO: load ELF
-        let aspace = AddressSpace::new();
         let mut elf_vaddr_end = 0usize;
         let mut stack_pte_flags = PTEFlags::U;
 
@@ -193,6 +191,16 @@ impl AppManager {
         let vsstack_pn = VirtAddr::from(elf_vaddr_end + PAGE_SIZE).ceil_page_num();
         aspace.map(ustack, 0, vsstack_pn, None, stack_pte_flags);
         info!("map user stack at {:#x?}", vsstack_pn.addr());
+        LoadedElf {
+            entry,
+            user_sp: usize::from(vsstack_pn.addr()) + USER_STACK_SIZE,
+        }
+    }
+    pub fn load_app(&self, id: usize) -> LoadedApp {
+        let aspace = AddressSpace::new();
+
+        let loaded_elf = self.load_elf(id, &aspace);
+
         // map trampoline
         aspace.map(
             TRAMPOLINE.clone(),
@@ -219,8 +227,8 @@ impl AppManager {
         let user_cx_vmo = VMObjectPaged::new(1).unwrap();
         let trap_cx_ptr = usize::from(user_cx_vmo.get_page(0).unwrap().addr());
         let user_cx = TrapContext::new(
-            entry,
-            usize::from(vsstack_pn.addr()) + USER_STACK_SIZE,
+            loaded_elf.entry,
+            loaded_elf.user_sp,
             token,
             kstack.get_sp(),
             trap_cx_ptr,
@@ -251,4 +259,9 @@ pub struct LoadedApp {
     pub aspace: Arc<AddressSpace>,
     pub kernel_sp: usize,
     pub trap_cx_ptr: usize,
+}
+
+pub struct LoadedElf {
+    pub entry: usize,
+    pub user_sp: usize,
 }
