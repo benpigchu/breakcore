@@ -21,19 +21,16 @@ impl TrapContext {
     pub fn set_sp(&mut self, sp: usize) {
         self.x[2] = sp;
     }
-    pub fn new(
-        pc: usize,
-        sp: usize,
-        user_satp: usize,
-        kernel_kstack: usize,
-        kernel_cx_addr: usize,
-    ) -> Self {
+    pub fn set_pc(&mut self, pc: usize) {
+        self.sepc = pc;
+    }
+    pub fn new(user_satp: usize, kernel_kstack: usize, kernel_cx_addr: usize) -> Self {
         let mut sstatus = sstatus::read();
         sstatus.set_spp(SPP::User);
-        let mut cx = Self {
+        let cx = Self {
             x: [0; 32],
             sstatus,
-            sepc: pc,
+            sepc: 0,
             trap_handler_address: trap_handler as usize,
             user_satp,
             kernel_satp: KERNEL_ASPACE.token(),
@@ -41,7 +38,6 @@ impl TrapContext {
             kernel_cx_addr,
             kernel_sp: kernel_kstack,
         };
-        cx.set_sp(sp);
         cx
     }
 }

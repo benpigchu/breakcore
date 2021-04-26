@@ -198,9 +198,6 @@ impl AppManager {
     }
     pub fn load_app(&self, id: usize) -> LoadedApp {
         let aspace = AddressSpace::new();
-
-        let loaded_elf = self.load_elf(id, &aspace);
-
         // map trampoline
         aspace.map(
             TRAMPOLINE.clone(),
@@ -226,20 +223,9 @@ impl AppManager {
         // map user context
         let user_cx_vmo = VMObjectPaged::new(1).unwrap();
         let trap_cx_ptr = usize::from(user_cx_vmo.get_page(0).unwrap().addr());
-        let user_cx = TrapContext::new(
-            loaded_elf.entry,
-            loaded_elf.user_sp,
-            token,
-            kstack.get_sp(),
-            trap_cx_ptr,
-        );
-        let user_cx_buf = unsafe {
-            slice::from_raw_parts(
-                &user_cx as *const _ as *const u8,
-                core::mem::size_of::<TrapContext>(),
-            )
-        };
-        user_cx_vmo.write(0, user_cx_buf);
+        let trap_cx_ref = unsafe { (trap_cx_ptr as *mut TrapContext).as_mut() }.unwrap();
+        let user_cx = TrapContext::new(token, kstack.get_sp(), trap_cx_ptr);
+        *trap_cx_ref = user_cx;
         aspace.map(
             user_cx_vmo,
             0,
@@ -247,6 +233,10 @@ impl AppManager {
             None,
             PTEFlags::R | PTEFlags::W,
         );
+
+        let loaded_elf = self.load_elf(id, &aspace);
+        trap_cx_ref.set_pc(loaded_elf.entry);
+        trap_cx_ref.set_sp(loaded_elf.user_sp);
         LoadedApp {
             aspace,
             kernel_sp,
