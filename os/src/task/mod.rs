@@ -23,7 +23,7 @@ struct TaskInner<SD: Default> {
     kernel_sp: usize,
     trap_cx_ptr: usize,
     status: TaskStatus,
-    aspace: Option<Arc<AddressSpace>>,
+    aspace: Arc<AddressSpace>,
     sched_data: SD,
     priority: usize,
 }
@@ -47,7 +47,7 @@ impl<SD: Default> Task<SD> {
                 kernel_sp: loaded_app.kernel_sp,
                 trap_cx_ptr: loaded_app.trap_cx_ptr,
                 status: TaskStatus::Ready,
-                aspace: Some(loaded_app.aspace),
+                aspace: loaded_app.aspace,
                 sched_data: Default::default(),
                 priority: 2,
             }),
@@ -147,12 +147,10 @@ impl TaskManager {
 
     pub fn current_aspace(&self) -> Option<Arc<AddressSpace>> {
         let inner = self.inner.lock();
-        let aspace = inner.tasks[inner.current]
-            .inner
-            .lock()
-            .aspace
-            .as_ref()
-            .cloned();
+        let aspace = inner
+            .tasks
+            .get(inner.current)
+            .map(|t| t.inner.lock().aspace.clone());
         aspace
     }
 
