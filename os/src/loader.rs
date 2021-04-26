@@ -211,14 +211,16 @@ impl AppManager {
         );
         let kstack = unsafe { (vskstack as *mut KernelStack).as_mut().unwrap() };
         let token = aspace.token();
+        let kernel_sp = init_stack(
+            kstack,
+            usize::from(vsstack_pn.addr()) + USER_STACK_SIZE,
+            entry,
+            token,
+        );
         LoadedApp {
             aspace,
-            kernel_sp: init_stack(
-                kstack,
-                usize::from(vsstack_pn.addr()) + USER_STACK_SIZE,
-                entry,
-                token,
-            ),
+            kernel_sp,
+            trap_cx_ptr: (kstack.get_sp() - core::mem::size_of::<TrapContext>()),
         }
     }
 }
@@ -226,4 +228,5 @@ impl AppManager {
 pub struct LoadedApp {
     pub aspace: Arc<AddressSpace>,
     pub kernel_sp: usize,
+    pub trap_cx_ptr: usize,
 }

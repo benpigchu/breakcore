@@ -27,6 +27,7 @@ impl Default for TaskStatus {
 #[derive(Default)]
 struct Task<SD: Default> {
     kernel_sp: usize,
+    trap_cx_ptr: usize,
     status: TaskStatus,
     aspace: Option<Arc<AddressSpace>>,
     sched_data: SD,
@@ -136,6 +137,11 @@ impl TaskManager {
         let current = inner.current;
         inner.tasks[current].priority = priority;
     }
+
+    pub fn current_cx_ptr(&self) -> usize {
+        let inner = self.inner.lock();
+        inner.tasks[inner.current].trap_cx_ptr
+    }
 }
 
 impl TaskManagerInner {
@@ -143,6 +149,7 @@ impl TaskManagerInner {
         info!("load app: {}", id);
         let loaded_app = APP_MANAGER.load_app(id);
         self.tasks[id].kernel_sp = loaded_app.kernel_sp;
+        self.tasks[id].trap_cx_ptr = loaded_app.trap_cx_ptr;
         self.tasks[id].aspace = Some(loaded_app.aspace)
     }
 }

@@ -15,6 +15,7 @@ pub struct TrapContext {
     pub kernel_satp: usize,
     pub user_cx_addr: usize,
     pub kernel_cx_addr: usize,
+    pub kernel_sp: usize,
 }
 
 impl TrapContext {
@@ -34,6 +35,7 @@ impl TrapContext {
             user_cx_addr: usize::from(KSTACK_BASE_VPN.addr()) + KERNEL_STACK_SIZE
                 - core::mem::size_of::<TrapContext>(),
             kernel_cx_addr: kernel_kstack - core::mem::size_of::<TrapContext>(),
+            kernel_sp: kernel_kstack - core::mem::size_of::<TrapContext>(),
         };
         cx.set_sp(sp);
         cx

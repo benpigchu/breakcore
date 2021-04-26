@@ -37,8 +37,9 @@ fn set_user_trap_entry() {
 }
 
 #[no_mangle]
-extern "C" fn trap_handler(cx: *mut TrapContext) {
+extern "C" fn trap_handler(cx: *mut TrapContext) -> *mut TrapContext {
     set_kernel_trap_entry();
+    assert_eq!(cx as usize, crate::TASK_MANAGER.current_cx_ptr());
 
     let cx = unsafe { cx.as_mut().unwrap() };
     let scause = scause::read();
@@ -71,6 +72,7 @@ extern "C" fn trap_handler(cx: *mut TrapContext) {
         }
     }
     set_user_trap_entry();
+    cx
 }
 
 #[no_mangle]
@@ -80,7 +82,7 @@ pub fn trap_from_kernel() -> ! {
 
 // Used
 #[no_mangle]
-pub extern "C" fn launch() {
+pub extern "C" fn launch() -> *mut TrapContext {
     set_user_trap_entry();
     extern "C" {
         fn __alltraps();
@@ -92,5 +94,6 @@ pub extern "C" fn launch() {
         // overwrite on stack return address
         llvm_asm!("sd $0, -8(fp)" :: "r"(restore_va) :: "volatile");
     }
+    TASK_MANAGER.current_cx_ptr() as *mut TrapContext
     // normally return, since we overwrote return address
 }
