@@ -1,9 +1,8 @@
 use crate::mm::addr::*;
-use crate::mm::aspace::{create_user_aspace, AddressSpace, KERNEL_ASPACE, TRAMPOLINE_BASE_VPN};
+use crate::mm::aspace::{create_user_aspace, AddressSpace};
 use crate::mm::vmo::{VMObject, VMObjectPaged};
 use crate::mm::PTEFlags;
 use crate::task::pid::PidHandle;
-use crate::task::TaskContext;
 use crate::trap::context::TrapContext;
 use alloc::sync::Arc;
 use core::slice;
@@ -13,30 +12,7 @@ use log::*;
 global_asm!(include_str!("embed_app.asm"));
 
 pub const USER_STACK_SIZE: usize = 4096 * 16;
-pub const KERNEL_STACK_SIZE: usize = 4096 * 16;
 pub const MAX_APP_NUM: usize = 16;
-#[repr(align(4096))]
-struct KernelStack {
-    data: [u8; KERNEL_STACK_SIZE],
-}
-
-impl KernelStack {
-    fn get_sp(&self) -> usize {
-        self.data.as_ptr() as usize + KERNEL_STACK_SIZE
-    }
-    pub fn push_context(&self, task_cx: TaskContext) -> usize {
-        let task_cx_ptr =
-            (self.get_sp() as usize - core::mem::size_of::<TaskContext>()) as *mut TaskContext;
-        unsafe {
-            *task_cx_ptr = task_cx;
-        }
-        task_cx_ptr as usize
-    }
-}
-
-fn init_stack(kstack: &mut KernelStack) -> usize {
-    kstack.push_context(TaskContext::goto_launch())
-}
 
 #[derive(Default)]
 struct AppInfo {
@@ -198,26 +174,14 @@ impl AppManager {
         }
     }
     pub fn load_app(&self, id: usize) -> LoadedApp {
-        // map kernel stack
         let pid = PidHandle::alloc();
-        let kstack_vmo = VMObjectPaged::new(page_count(KERNEL_STACK_SIZE)).unwrap();
-        let vskstack = usize::from(TRAMPOLINE_BASE_VPN.addr())
-            - (KERNEL_STACK_SIZE + PAGE_SIZE) * (pid.value() + 1);
-        KERNEL_ASPACE.map(
-            kstack_vmo,
-            0,
-            VirtAddr::from(vskstack).floor_page_num(),
-            None,
-            PTEFlags::R | PTEFlags::W,
-        );
-        let kstack = unsafe { (vskstack as *mut KernelStack).as_mut().unwrap() };
-        let kernel_sp = init_stack(kstack);
+        let kstack = pid.kernel_stack();
 
         let (aspace, trap_cx_ptr) = create_user_aspace();
 
         let token = aspace.token();
         let trap_cx_ref = unsafe { (trap_cx_ptr as *mut TrapContext).as_mut() }.unwrap();
-        let user_cx = TrapContext::new(token, kstack.get_sp(), trap_cx_ptr);
+        let user_cx = TrapContext::new(token, kstack.get_bottom_sp(), trap_cx_ptr);
         *trap_cx_ref = user_cx;
 
         let loaded_elf = self.load_elf(id, &aspace);
@@ -226,7 +190,7 @@ impl AppManager {
         LoadedApp {
             aspace,
             pid,
-            kernel_sp,
+            kernel_sp: kstack.get_init_sp(),
             trap_cx_ptr,
         }
     }
