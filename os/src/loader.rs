@@ -1,9 +1,7 @@
 use crate::mm::addr::*;
-use crate::mm::aspace::{create_user_aspace, AddressSpace};
+use crate::mm::aspace::AddressSpace;
 use crate::mm::vmo::{VMObject, VMObjectPaged};
 use crate::mm::PTEFlags;
-use crate::task::pid::PidHandle;
-use crate::trap::context::TrapContext;
 use alloc::sync::Arc;
 use core::slice;
 use lazy_static::*;
@@ -173,34 +171,6 @@ impl AppManager {
             user_sp: usize::from(vsstack_pn.addr()) + USER_STACK_SIZE,
         }
     }
-    pub fn load_app(&self, id: usize) -> LoadedApp {
-        let pid = PidHandle::alloc();
-        let kstack = pid.kernel_stack();
-
-        let (aspace, trap_cx_ptr) = create_user_aspace();
-
-        let token = aspace.token();
-        let trap_cx_ref = unsafe { (trap_cx_ptr as *mut TrapContext).as_mut() }.unwrap();
-        let user_cx = TrapContext::new(token, kstack.get_bottom_sp(), trap_cx_ptr);
-        *trap_cx_ref = user_cx;
-
-        let loaded_elf = self.load_elf(id, &aspace);
-        trap_cx_ref.set_pc(loaded_elf.entry);
-        trap_cx_ref.set_sp(loaded_elf.user_sp);
-        LoadedApp {
-            aspace,
-            pid,
-            kernel_sp: kstack.get_init_sp(),
-            trap_cx_ptr,
-        }
-    }
-}
-
-pub struct LoadedApp {
-    pub aspace: Arc<AddressSpace>,
-    pub pid: PidHandle,
-    pub kernel_sp: usize,
-    pub trap_cx_ptr: usize,
 }
 
 pub struct LoadedElf {

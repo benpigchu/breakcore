@@ -1,6 +1,7 @@
 use crate::loader::*;
-use crate::mm::aspace::AddressSpace;
+use crate::mm::aspace::{create_user_aspace, AddressSpace};
 use crate::sbi::shutdown;
+use crate::trap::context::*;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use lazy_static::*;
@@ -42,16 +43,28 @@ impl<SD: Default> TaskInner<SD> {
 }
 
 impl<SD: Default> Task<SD> {
-    fn new(app_id: usize) -> Arc<Self> {
+    fn new_init(app_id: usize) -> Arc<Self> {
         info!("task from app: {}", app_id);
-        let loaded_app = APP_MANAGER.load_app(app_id);
+        let pid = PidHandle::alloc();
+        let kstack = pid.kernel_stack();
+
+        let (aspace, trap_cx_ptr) = create_user_aspace();
+
+        let token = aspace.token();
+        let trap_cx_ref = unsafe { (trap_cx_ptr as *mut TrapContext).as_mut() }.unwrap();
+        let user_cx = TrapContext::new(token, kstack.get_bottom_sp(), trap_cx_ptr);
+        *trap_cx_ref = user_cx;
+
+        let loaded_elf = APP_MANAGER.load_elf(app_id, &aspace);
+        trap_cx_ref.set_pc(loaded_elf.entry);
+        trap_cx_ref.set_sp(loaded_elf.user_sp);
         Arc::new(Self {
             inner: Mutex::new(TaskInner::<SD> {
-                pid: loaded_app.pid,
-                kernel_sp: loaded_app.kernel_sp,
-                trap_cx_ptr: loaded_app.trap_cx_ptr,
+                pid,
+                kernel_sp: kstack.get_init_sp(),
+                trap_cx_ptr,
                 status: TaskStatus::Ready,
-                aspace: loaded_app.aspace,
+                aspace,
                 sched_data: Default::default(),
                 priority: 2,
             }),
@@ -84,7 +97,7 @@ impl TaskManager {
     pub fn launch_first_task(&self) -> ! {
         let mut inner = self.inner.lock();
         for id in 0..self.app_num {
-            inner.tasks.push(Task::new(id))
+            inner.tasks.push(Task::new_init(id))
         }
         let task_id = inner
             .scheduler
