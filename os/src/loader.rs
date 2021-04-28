@@ -1,6 +1,6 @@
 use crate::mm::addr::*;
-use crate::mm::aspace::{AddressSpace, KERNEL_ASPACE, TRAMPOLINE_BASE_VPN, USER_CX_BASE_VPN};
-use crate::mm::vmo::{VMObject, VMObjectPaged, TRAMPOLINE};
+use crate::mm::aspace::{create_user_aspace, AddressSpace, KERNEL_ASPACE, TRAMPOLINE_BASE_VPN};
+use crate::mm::vmo::{VMObject, VMObjectPaged};
 use crate::mm::PTEFlags;
 use crate::task::TaskContext;
 use crate::trap::context::TrapContext;
@@ -197,15 +197,6 @@ impl AppManager {
         }
     }
     pub fn load_app(&self, id: usize) -> LoadedApp {
-        let aspace = AddressSpace::new();
-        // map trampoline
-        aspace.map(
-            TRAMPOLINE.clone(),
-            0,
-            *TRAMPOLINE_BASE_VPN,
-            None,
-            PTEFlags::R | PTEFlags::X,
-        );
         // map kernel stack
         let kstack_vmo = VMObjectPaged::new(page_count(KERNEL_STACK_SIZE)).unwrap();
         let vskstack =
@@ -218,21 +209,14 @@ impl AppManager {
             PTEFlags::R | PTEFlags::W,
         );
         let kstack = unsafe { (vskstack as *mut KernelStack).as_mut().unwrap() };
-        let token = aspace.token();
         let kernel_sp = init_stack(kstack);
-        // map user context
-        let user_cx_vmo = VMObjectPaged::new(1).unwrap();
-        let trap_cx_ptr = usize::from(user_cx_vmo.get_page(0).unwrap().addr());
+
+        let (aspace, trap_cx_ptr) = create_user_aspace();
+
+        let token = aspace.token();
         let trap_cx_ref = unsafe { (trap_cx_ptr as *mut TrapContext).as_mut() }.unwrap();
         let user_cx = TrapContext::new(token, kstack.get_sp(), trap_cx_ptr);
         *trap_cx_ref = user_cx;
-        aspace.map(
-            user_cx_vmo,
-            0,
-            *USER_CX_BASE_VPN,
-            None,
-            PTEFlags::R | PTEFlags::W,
-        );
 
         let loaded_elf = self.load_elf(id, &aspace);
         trap_cx_ref.set_pc(loaded_elf.entry);

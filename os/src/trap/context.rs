@@ -27,7 +27,7 @@ impl TrapContext {
     pub fn new(user_satp: usize, kernel_kstack: usize, kernel_cx_addr: usize) -> Self {
         let mut sstatus = sstatus::read();
         sstatus.set_spp(SPP::User);
-        let cx = Self {
+        Self {
             x: [0; 32],
             sstatus,
             sepc: 0,
@@ -37,7 +37,6 @@ impl TrapContext {
             user_cx_addr: usize::from(USER_CX_BASE_VPN.addr()),
             kernel_cx_addr,
             kernel_sp: kernel_kstack,
-        };
-        cx
+        }
     }
 }

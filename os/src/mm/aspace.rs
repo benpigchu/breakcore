@@ -2,7 +2,7 @@ use lazy_static::{initialize, lazy_static};
 
 use super::addr::*;
 use super::page_table::{PTEFlags, PageTable};
-use super::vmo::{VMObject, VMObjectPhysical, TRAMPOLINE};
+use super::vmo::{VMObject, VMObjectPaged, VMObjectPhysical, TRAMPOLINE};
 use alloc::sync::Arc;
 use alloc::vec::Vec;
 use log::*;
@@ -324,4 +324,29 @@ pub fn kernel_aspace_init() {
     info!("paging enabling...");
     KERNEL_ASPACE.apply();
     info!("paging enabled!");
+}
+
+/// Create AddressSpace for user program,
+/// returns AddressSpace and pointer to TrapContext in kernel
+pub fn create_user_aspace() -> (Arc<AddressSpace>, usize) {
+    let aspace = AddressSpace::new();
+    // map trampoline
+    aspace.map(
+        TRAMPOLINE.clone(),
+        0,
+        *TRAMPOLINE_BASE_VPN,
+        None,
+        PTEFlags::R | PTEFlags::X,
+    );
+    // map user context
+    let user_cx_vmo = VMObjectPaged::new(1).unwrap();
+    let trap_cx_ptr = usize::from(user_cx_vmo.get_page(0).unwrap().addr());
+    aspace.map(
+        user_cx_vmo,
+        0,
+        *USER_CX_BASE_VPN,
+        None,
+        PTEFlags::R | PTEFlags::W,
+    );
+    (aspace, trap_cx_ptr)
 }
