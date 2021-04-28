@@ -2,6 +2,7 @@ use crate::mm::addr::*;
 use crate::mm::aspace::{create_user_aspace, AddressSpace, KERNEL_ASPACE, TRAMPOLINE_BASE_VPN};
 use crate::mm::vmo::{VMObject, VMObjectPaged};
 use crate::mm::PTEFlags;
+use crate::task::pid::PidHandle;
 use crate::task::TaskContext;
 use crate::trap::context::TrapContext;
 use alloc::sync::Arc;
@@ -198,9 +199,10 @@ impl AppManager {
     }
     pub fn load_app(&self, id: usize) -> LoadedApp {
         // map kernel stack
+        let pid = PidHandle::alloc();
         let kstack_vmo = VMObjectPaged::new(page_count(KERNEL_STACK_SIZE)).unwrap();
-        let vskstack =
-            usize::from(TRAMPOLINE_BASE_VPN.addr()) - (KERNEL_STACK_SIZE + PAGE_SIZE) * (id + 1);
+        let vskstack = usize::from(TRAMPOLINE_BASE_VPN.addr())
+            - (KERNEL_STACK_SIZE + PAGE_SIZE) * (pid.value() + 1);
         KERNEL_ASPACE.map(
             kstack_vmo,
             0,
@@ -223,6 +225,7 @@ impl AppManager {
         trap_cx_ref.set_sp(loaded_elf.user_sp);
         LoadedApp {
             aspace,
+            pid,
             kernel_sp,
             trap_cx_ptr,
         }
@@ -231,6 +234,7 @@ impl AppManager {
 
 pub struct LoadedApp {
     pub aspace: Arc<AddressSpace>,
+    pub pid: PidHandle,
     pub kernel_sp: usize,
     pub trap_cx_ptr: usize,
 }

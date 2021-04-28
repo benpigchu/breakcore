@@ -11,6 +11,8 @@ mod context;
 pub use context::*;
 mod sched;
 use sched::{create_scheduler, Scheduler, SchedulerImpl};
+pub mod pid;
+use pid::PidHandle;
 
 #[derive(Copy, Clone, PartialEq)]
 pub enum TaskStatus {
@@ -20,6 +22,7 @@ pub enum TaskStatus {
 }
 
 struct TaskInner<SD: Default> {
+    pid: PidHandle,
     kernel_sp: usize,
     trap_cx_ptr: usize,
     status: TaskStatus,
@@ -44,6 +47,7 @@ impl<SD: Default> Task<SD> {
         let loaded_app = APP_MANAGER.load_app(app_id);
         Arc::new(Self {
             inner: Mutex::new(TaskInner::<SD> {
+                pid: loaded_app.pid,
                 kernel_sp: loaded_app.kernel_sp,
                 trap_cx_ptr: loaded_app.trap_cx_ptr,
                 status: TaskStatus::Ready,
@@ -138,8 +142,14 @@ impl TaskManager {
     pub fn exit_task(&self, exit_code: i32) -> ! {
         let inner = self.inner.lock();
         let current = inner.current;
-        info!("user program {} exited, code: {:#x?}", current, exit_code);
-        inner.tasks[current].inner.lock().status = TaskStatus::Exited;
+        let mut current_inner = inner.tasks[current].inner.lock();
+        info!(
+            "user program {} exited, code: {:#x?}",
+            current_inner.pid.value(),
+            exit_code
+        );
+        current_inner.status = TaskStatus::Exited;
+        drop(current_inner);
         drop(inner);
         self.switch_task();
         unreachable!("We should not switch back to exited task!");
