@@ -71,6 +71,7 @@ impl TaskManager {
             .pick_next(&inner.tasks[0..self.app_num])
             .unwrap();
         inner.init_task(task_id);
+        inner.current = task_id;
         let next_kernel_sp_ptr = inner.tasks[task_id].get_kernel_sp_ptr();
         let current_kernel_sp = 0usize;
         let current_kernel_sp_ptr = &current_kernel_sp as *const usize as usize;
