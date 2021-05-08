@@ -103,6 +103,7 @@ impl TaskManager {
             .scheduler
             .pick_next(&inner.tasks[0..self.app_num])
             .unwrap();
+        inner.current = task_id;
         let mut task_inner = inner.tasks[task_id].inner.lock();
         let next_kernel_sp_ptr = task_inner.get_kernel_sp_ptr();
         let current_kernel_sp = 0usize;
