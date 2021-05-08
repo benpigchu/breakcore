@@ -41,7 +41,7 @@ pub fn rust_main() -> ! {
     timer::init();
     timer::schedule_next();
     APP_MANAGER.print_info();
-    TASK_MANAGER.launch_first_task();
+    TASK_MANAGER.launch();
 }
 
 #[allow(dead_code)]

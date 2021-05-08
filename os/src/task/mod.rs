@@ -72,21 +72,23 @@ impl<SD: Default> Task<SD> {
     }
 }
 
+type TaskImpl = Task<<SchedulerImpl as Scheduler>::Data>;
+
 pub struct TaskManager {
     app_num: usize,
     inner: Mutex<TaskManagerInner>,
 }
 pub struct TaskManagerInner {
-    current: usize,
+    current: Option<Arc<TaskImpl>>,
     scheduler: SchedulerImpl,
-    tasks: Vec<Arc<Task<<SchedulerImpl as Scheduler>::Data>>>,
+    tasks: Vec<Arc<TaskImpl>>,
 }
 
 lazy_static! {
     pub static ref TASK_MANAGER: TaskManager = TaskManager {
         app_num: APP_MANAGER.app_num,
         inner: Mutex::new(TaskManagerInner {
-            current: 0,
+            current: None,
             scheduler: create_scheduler(),
             tasks: Vec::new()
         }),
@@ -94,58 +96,45 @@ lazy_static! {
 }
 
 impl TaskManager {
-    pub fn launch_first_task(&self) -> ! {
+    pub fn launch(&self) -> ! {
         let mut inner = self.inner.lock();
         for id in 0..self.app_num {
             inner.tasks.push(Task::new_init(id))
         }
-        let task_id = inner
-            .scheduler
-            .pick_next(&inner.tasks[0..self.app_num])
-            .unwrap();
-        inner.current = task_id;
-        let mut task_inner = inner.tasks[task_id].inner.lock();
-        let next_kernel_sp_ptr = task_inner.get_kernel_sp_ptr();
-        let current_kernel_sp = 0usize;
-        let current_kernel_sp_ptr = &current_kernel_sp as *const usize as usize;
-        task_inner.status = TaskStatus::Running;
-        drop(task_inner);
         drop(inner);
-        unsafe {
-            __switch(current_kernel_sp_ptr, next_kernel_sp_ptr);
-        }
+        self.switch_task();
         unreachable!("We will no use boot_stack from here!");
-    }
-
-    fn switch_to_task(&self, current: usize, next: usize) {
-        if current == next {
-            return;
-        }
-        let inner = self.inner.lock();
-        let current_kernel_sp_ptr = inner.tasks[current].inner.lock().get_kernel_sp_ptr();
-        let next_kernel_sp_ptr = inner.tasks[next].inner.lock().get_kernel_sp_ptr();
-        drop(inner);
-        unsafe {
-            __switch(current_kernel_sp_ptr, next_kernel_sp_ptr);
-        }
     }
 
     pub fn switch_task(&self) {
         let mut inner = self.inner.lock();
-        let current = inner.current;
-        inner.scheduler.proc_tick(&inner.tasks[current]);
-        if let Some(next) = inner.scheduler.pick_next(&inner.tasks[0..self.app_num]) {
-            inner.current = next;
-            let mut current_inner = inner.tasks[current].inner.lock();
+        let current = inner.current.take();
+        let current_kernel_sp_ptr: usize;
+        if let Some(current_task) = current.as_ref() {
+            inner.scheduler.proc_tick(&current_task);
+            let mut current_inner = current_task.inner.lock();
             if current_inner.status == TaskStatus::Running {
                 current_inner.status = TaskStatus::Ready
             }
+            current_kernel_sp_ptr = current_inner.get_kernel_sp_ptr();
             drop(current_inner);
-            let mut next_inner = inner.tasks[next].inner.lock();
+        } else {
+            let current_kernel_sp = 0usize;
+            current_kernel_sp_ptr = &current_kernel_sp as *const usize as usize;
+        }
+        if let Some(next) = inner.scheduler.pick_next(&inner.tasks) {
+            let next_task = inner.tasks[next].clone();
+            let mut next_inner = next_task.inner.lock();
             next_inner.status = TaskStatus::Running;
+            let next_kernel_sp_ptr = next_inner.get_kernel_sp_ptr();
             drop(next_inner);
+            inner.current = Some(next_task.clone());
             drop(inner);
-            self.switch_to_task(current, next)
+            if current_kernel_sp_ptr != next_kernel_sp_ptr {
+                unsafe {
+                    __switch(current_kernel_sp_ptr, next_kernel_sp_ptr);
+                }
+            }
         } else {
             drop(inner);
             info!("No more app!");
@@ -155,8 +144,8 @@ impl TaskManager {
 
     pub fn exit_task(&self, exit_code: i32) -> ! {
         let inner = self.inner.lock();
-        let current = inner.current;
-        let mut current_inner = inner.tasks[current].inner.lock();
+        let current = inner.current.as_ref().unwrap();
+        let mut current_inner = current.inner.lock();
         info!(
             "user program {} exited, code: {:#x?}",
             current_inner.pid.value(),
@@ -172,22 +161,20 @@ impl TaskManager {
     pub fn current_aspace(&self) -> Option<Arc<AddressSpace>> {
         let inner = self.inner.lock();
         let aspace = inner
-            .tasks
-            .get(inner.current)
+            .current
+            .as_ref()
             .map(|t| t.inner.lock().aspace.clone());
         aspace
     }
 
     pub fn set_current_task_priority(&self, priority: usize) {
         let inner = self.inner.lock();
-        let current = inner.current;
-        inner.tasks[current].inner.lock().priority = priority;
+        inner.current.as_ref().unwrap().inner.lock().priority = priority;
     }
 
     pub fn current_cx_ptr(&self) -> usize {
         let inner = self.inner.lock();
-        let current = inner.current;
-        let trap_cx_ptr = inner.tasks[current].inner.lock().trap_cx_ptr;
+        let trap_cx_ptr = inner.current.as_ref().unwrap().inner.lock().trap_cx_ptr;
         trap_cx_ptr
     }
 }
