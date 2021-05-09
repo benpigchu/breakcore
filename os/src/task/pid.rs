@@ -12,6 +12,7 @@ pub struct PidHandle(usize);
 impl PidHandle {
     pub fn alloc() -> Self {
         let pid = PID_ALLOCATOR.lock().alloc();
+        log::info!("alloc pid: {:#x?}", pid);
         // map kernel stack
         let kstack_vmo = VMObjectPaged::new(page_count(KERNEL_STACK_SIZE)).unwrap();
         let vskstack = kernel_stack_addr(pid);
@@ -44,6 +45,7 @@ impl PidHandle {
 impl Drop for PidHandle {
     fn drop(&mut self) {
         // unmap kernel stack
+        log::info!("drop pid: {:#x?}", self.0);
         KERNEL_ASPACE.unmap(
             VirtAddr::from(self.kernel_stack_addr()).floor_page_num(),
             page_count(core::mem::size_of::<KernelStack>()),
@@ -85,7 +87,7 @@ impl PidAllocator for StackPidAllocator {
         if pid >= self.current {
             return false;
         }
-        self.recycled.contains(&pid)
+        !self.recycled.contains(&pid)
     }
 }
 

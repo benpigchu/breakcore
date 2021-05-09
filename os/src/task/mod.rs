@@ -80,8 +80,9 @@ pub struct TaskManager {
 }
 pub struct TaskManagerInner {
     current: Option<Arc<TaskImpl>>,
+    last: Option<Arc<TaskImpl>>,
     scheduler: SchedulerImpl,
-    tasks: Vec<Arc<TaskImpl>>,
+    ready_tasks: Vec<Arc<TaskImpl>>,
 }
 
 lazy_static! {
@@ -89,17 +90,29 @@ lazy_static! {
         app_num: APP_MANAGER.app_num,
         inner: Mutex::new(TaskManagerInner {
             current: None,
+            last: None,
             scheduler: create_scheduler(),
-            tasks: Vec::new()
+            ready_tasks: Vec::new()
         }),
     };
+}
+
+impl TaskManagerInner {
+    fn take_next(&mut self) -> Option<Arc<TaskImpl>> {
+        let index = self.scheduler.pick_next(&self.ready_tasks);
+        if let Some(task_index) = index {
+            Some(self.ready_tasks.remove(task_index))
+        } else {
+            None
+        }
+    }
 }
 
 impl TaskManager {
     pub fn launch(&self) -> ! {
         let mut inner = self.inner.lock();
         for id in 0..self.app_num {
-            inner.tasks.push(Task::new_init(id))
+            inner.ready_tasks.push(Task::new_init(id))
         }
         drop(inner);
         self.switch_task();
@@ -114,7 +127,8 @@ impl TaskManager {
             inner.scheduler.proc_tick(&current_task);
             let mut current_inner = current_task.inner.lock();
             if current_inner.status == TaskStatus::Running {
-                current_inner.status = TaskStatus::Ready
+                current_inner.status = TaskStatus::Ready;
+                inner.ready_tasks.push(current_task.clone())
             }
             current_kernel_sp_ptr = current_inner.get_kernel_sp_ptr();
             drop(current_inner);
@@ -122,19 +136,20 @@ impl TaskManager {
             let current_kernel_sp = 0usize;
             current_kernel_sp_ptr = &current_kernel_sp as *const usize as usize;
         }
-        if let Some(next) = inner.scheduler.pick_next(&inner.tasks) {
-            let next_task = inner.tasks[next].clone();
+        inner.last = current;
+        if let Some(next_task) = inner.take_next() {
             let mut next_inner = next_task.inner.lock();
             next_inner.status = TaskStatus::Running;
             let next_kernel_sp_ptr = next_inner.get_kernel_sp_ptr();
             drop(next_inner);
-            inner.current = Some(next_task.clone());
+            inner.current = Some(next_task);
             drop(inner);
             if current_kernel_sp_ptr != next_kernel_sp_ptr {
                 unsafe {
                     __switch(current_kernel_sp_ptr, next_kernel_sp_ptr);
                 }
             }
+            self.inner.lock().last.take();
         } else {
             drop(inner);
             info!("No more app!");
@@ -151,6 +166,8 @@ impl TaskManager {
             current_inner.pid.value(),
             exit_code
         );
+        info!("exit task strong count:{:?}", Arc::strong_count(current));
+        info!("task count:{:?}", inner.ready_tasks.len());
         current_inner.status = TaskStatus::Exited;
         drop(current_inner);
         drop(inner);
