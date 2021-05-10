@@ -43,8 +43,7 @@ impl<SD: Default> TaskInner<SD> {
 }
 
 impl<SD: Default> Task<SD> {
-    fn new_init(app_id: usize) -> Arc<Self> {
-        info!("task from app: {}", app_id);
+    fn new_base() -> Arc<Self> {
         let pid = PidHandle::alloc();
         let kstack = pid.kernel_stack();
 
@@ -55,9 +54,6 @@ impl<SD: Default> Task<SD> {
         let user_cx = TrapContext::new(token, kstack.get_bottom_sp(), trap_cx_ptr);
         *trap_cx_ref = user_cx;
 
-        let loaded_elf = APP_MANAGER.load_elf(app_id, &aspace);
-        trap_cx_ref.set_pc(loaded_elf.entry);
-        trap_cx_ref.set_sp(loaded_elf.user_sp);
         Arc::new(Self {
             inner: Mutex::new(TaskInner::<SD> {
                 pid,
@@ -69,6 +65,20 @@ impl<SD: Default> Task<SD> {
                 priority: 2,
             }),
         })
+    }
+
+    fn new_init(app_id: usize) -> Arc<Self> {
+        info!("task from app: {}", app_id);
+        let task = Self::new_base();
+        let inner = task.inner.lock();
+        let trap_cx_ref = unsafe { (inner.trap_cx_ptr as *mut TrapContext).as_mut() }.unwrap();
+
+        let loaded_elf = APP_MANAGER.load_elf(app_id, &inner.aspace);
+        trap_cx_ref.set_pc(loaded_elf.entry);
+        trap_cx_ref.set_sp(loaded_elf.user_sp);
+
+        drop(inner);
+        task
     }
 }
 
@@ -166,8 +176,6 @@ impl TaskManager {
             current_inner.pid.value(),
             exit_code
         );
-        info!("exit task strong count:{:?}", Arc::strong_count(current));
-        info!("task count:{:?}", inner.ready_tasks.len());
         current_inner.status = TaskStatus::Exited;
         drop(current_inner);
         drop(inner);
