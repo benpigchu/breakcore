@@ -11,6 +11,7 @@ const SYSCALL_GET_TIME: usize = 169;
 const SYSCALL_SET_PRIORITY: usize = 140;
 const SYSCALL_MMAP: usize = 222;
 const SYSCALL_MUNMAP: usize = 215;
+const SYSCALL_FORK: usize = 220;
 
 fn syscall(id: usize, arg0: usize, arg1: usize, arg2: usize) -> isize {
     let mut ret: isize;
@@ -52,4 +53,8 @@ pub fn sys_mmap(start: usize, len: usize, prot: MMapprot) -> isize {
 
 pub fn sys_munmap(start: usize, len: usize) -> isize {
     syscall(SYSCALL_MUNMAP, start, len, 0)
+}
+
+pub fn sys_fork() -> isize {
+    syscall(SYSCALL_FORK, 0, 0, 0)
 }

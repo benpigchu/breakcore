@@ -9,6 +9,7 @@ pub trait VMObject: Send + Sync {
     fn get_page(&self, page_index: usize) -> Option<PhysPageNum>;
     fn read(&self, offset: usize, buf: &mut [u8]) -> usize;
     fn write(&self, offset: usize, buf: &[u8]) -> usize;
+    fn create_clone(&self) -> Option<Arc<dyn VMObject>>;
 }
 
 pub struct VMObjectPhysical {
@@ -66,6 +67,9 @@ impl VMObject for VMObjectPhysical {
         };
         slice.copy_from_slice(&buf[..len]);
         len
+    }
+    fn create_clone(&self) -> Option<Arc<dyn VMObject>> {
+        None
     }
 }
 
@@ -136,5 +140,14 @@ impl VMObject for VMObjectPaged {
             current_page += 1;
         }
         len
+    }
+    fn create_clone(&self) -> Option<Arc<dyn VMObject>> {
+        let mut frames = Vec::with_capacity(self.frames.len());
+        for src in &self.frames {
+            let dest = Frame::alloc_uninitialized()?;
+            dest.content().copy_from_slice(src.content());
+            frames.push(dest)
+        }
+        Some(Arc::new(Self { frames }))
     }
 }

@@ -16,3 +16,10 @@ pub fn sys_set_priority(priority: isize) -> isize {
     TASK_MANAGER.set_current_task_priority(priority as usize);
     priority
 }
+
+pub fn sys_fork() -> isize {
+    TASK_MANAGER
+        .fork_current()
+        .map(|pid| pid as isize)
+        .unwrap_or(-1)
+}

@@ -80,6 +80,26 @@ impl<SD: Default> Task<SD> {
         drop(inner);
         task
     }
+
+    fn new_fork(&self) -> Option<Arc<Self>> {
+        let inner = self.inner.lock();
+        info!("task fork from pid: {}", inner.pid.value());
+        let trap_cx_ref = unsafe { (inner.trap_cx_ptr as *mut TrapContext).as_mut() }.unwrap();
+
+        let task = Self::new_base();
+        let task_inner = task.inner.lock();
+        let task_trap_cx_ref =
+            unsafe { (task_inner.trap_cx_ptr as *mut TrapContext).as_mut() }.unwrap();
+
+        task_inner.aspace.fork_from(&inner.aspace)?;
+        task_trap_cx_ref.x = trap_cx_ref.x;
+        task_trap_cx_ref.sepc = trap_cx_ref.sepc;
+        task_trap_cx_ref.sstatus = trap_cx_ref.sstatus;
+        // fork syscall returns 0 for new task
+        trap_cx_ref.x[10] = 0;
+        drop(task_inner);
+        Some(task)
+    }
 }
 
 type TaskImpl = Task<<SchedulerImpl as Scheduler>::Data>;
@@ -201,5 +221,16 @@ impl TaskManager {
         let inner = self.inner.lock();
         let trap_cx_ptr = inner.current.as_ref().unwrap().inner.lock().trap_cx_ptr;
         trap_cx_ptr
+    }
+
+    pub fn fork_current(&self) -> Option<usize> {
+        let mut inner = self.inner.lock();
+        let new_task = inner.current.as_ref().and_then(|task| task.new_fork());
+        if let Some(new_task) = new_task {
+            let pid = new_task.inner.lock().pid.value();
+            inner.ready_tasks.push(new_task);
+            return Some(pid);
+        }
+        None
     }
 }

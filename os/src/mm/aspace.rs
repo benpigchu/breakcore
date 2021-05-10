@@ -58,6 +58,16 @@ impl AddressSpaceInner {
         }
         None
     }
+    fn has_overlapped_mapping(&self, base_vpn: VirtPageNum, page_count: usize) -> bool {
+        for mapping in &self.mappings {
+            if (usize::from(mapping.base_vpn) < usize::from(base_vpn) + page_count)
+                && (usize::from(base_vpn) < usize::from(mapping.base_vpn) + mapping.page_count)
+            {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 impl AddressSpace {
@@ -92,13 +102,8 @@ impl AddressSpace {
         if vmo_page_offset + page_count > vmo.page_count() {
             return None;
         }
-        // check for overlapping mapping
-        for mapping in &inner.mappings {
-            if (usize::from(mapping.base_vpn) < usize::from(base_vpn) + page_count)
-                && (usize::from(base_vpn) < usize::from(mapping.base_vpn) + mapping.page_count)
-            {
-                return None;
-            }
+        if inner.has_overlapped_mapping(base_vpn, page_count) {
+            return None;
         }
         inner.mappings.push(Arc::new(VMMapping {
             flags,
@@ -185,6 +190,42 @@ impl AddressSpace {
             }
         }
         progress
+    }
+
+    pub fn fork_from(&self, origin: &Arc<AddressSpace>) -> Option<()> {
+        let mut inner = self.inner.lock();
+        let origin_inner = origin.inner.lock();
+        let mut mapping_vmos = Vec::<(Arc<VMMapping>, Arc<dyn VMObject>)>::new();
+        for origin_mapping in &origin_inner.mappings {
+            if origin_mapping.flags.contains(PTEFlags::U) {
+                // check for overlapping mapping
+                if inner.has_overlapped_mapping(origin_mapping.base_vpn, origin_mapping.page_count)
+                {
+                    return None;
+                }
+                mapping_vmos.push((origin_mapping.clone(), origin_mapping.vmo.create_clone()?))
+            }
+        }
+        let mut page_table = self.page_table.lock();
+        for (origin_mapping, cloned_vmo) in mapping_vmos {
+            inner.mappings.push(Arc::new(VMMapping {
+                flags: origin_mapping.flags,
+                base_vpn: origin_mapping.base_vpn,
+                page_count: origin_mapping.page_count,
+                vmo_page_offset: origin_mapping.vmo_page_offset,
+                vmo: cloned_vmo.clone(),
+            }));
+            for i in 0..origin_mapping.page_count {
+                page_table.map(
+                    (usize::from(origin_mapping.base_vpn) + i).into(),
+                    cloned_vmo
+                        .get_page(origin_mapping.vmo_page_offset + i)
+                        .unwrap(),
+                    origin_mapping.flags,
+                )
+            }
+        }
+        Some(())
     }
 }
 

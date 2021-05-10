@@ -11,3 +11,9 @@
 最后，我们要对 `TaskManager` 管理 `Task` 的方式进行修改。首先我们当前的任务应当用 `Arc<Task>` 而非序号来表示当前任务，其次，我们让 `TaskManager` 中只存放接下来可以运行的 `Task` ，在任务切换时把当前任务（如果可以继续运行）移进列表，把接下来的任务移出列表，这样可以尽早销毁任务，回收资源。不过要注意的是，我们应当在上下文切换后再销毁 `Task`，因为切换前我们还要使用任务的内核栈，为此我们在切换前把之前的任务移入 `TaskManager` 的 `last` 字段暂存，切换后再进行销毁。
 
 ## 实现 fork
+
+要实现 fork，我们需要创建 `Task` ，并从原来的 `Task` 复制地址空间和上下文。
+
+首先我们在 `VMObject` trait 上新增一个 `create_clone` 方法，用于复制一块内存空间。对于 `VMObjectPhysical` ，它不应当可复制，所以直接返回 `None`，而对于 `VMObjectPaged` 则会分配新的内存空间，并复制内容，最后创建一个新的 `VMObjectPaged` 。然后我们在 `AddressSpace` 上新增一个 `fork_from` 方法，用于从另一个 `AddressSpace` 将用户程序可以接触到的内存空间复制过来。它会调用 `VMObject` trait 上的 `create_clone` 方法复制内存内容，并建立对应的映射。
+
+之后我们在 `Task` 上新增一个 `new_fork` 函数，它会先创建一个基本的 `Task`， 然后调用它的 `AddressSpace` 上的 `fork_from` 复制地址空间，然后再将上下文中通用寄存器、 pc 、sstatus 的内容复制过去，并将存放 syscall 返回值的寄存器改为 0。最后在系统调用时用 `new_fork` 新建 `Task` ，并将其加入接下来可以运行的 `Task` 列表即可。
