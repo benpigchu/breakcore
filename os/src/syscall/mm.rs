@@ -13,7 +13,7 @@ bitflags! {
 }
 
 pub fn sys_mmap(start: VirtAddr, len: usize, prot: usize) -> isize {
-    let aspace = if let Some(aspace) = TASK_MANAGER.current_aspace() {
+    let aspace = if let Some(aspace) = TASK_MANAGER.current_task().map(|task| task.aspace()) {
         aspace
     } else {
         return -1;
@@ -52,7 +52,7 @@ pub fn sys_mmap(start: VirtAddr, len: usize, prot: usize) -> isize {
 }
 
 pub fn sys_munmap(start: VirtAddr, len: usize) -> isize {
-    let aspace = if let Some(aspace) = TASK_MANAGER.current_aspace() {
+    let aspace = if let Some(aspace) = TASK_MANAGER.current_task().map(|task| task.aspace()) {
         aspace
     } else {
         return -1;

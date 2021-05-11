@@ -32,7 +32,7 @@ struct TaskInner<SD: Default> {
     priority: usize,
 }
 
-struct Task<SD: Default> {
+pub struct Task<SD: Default> {
     inner: Mutex<TaskInner<SD>>,
 }
 
@@ -81,7 +81,7 @@ impl<SD: Default> Task<SD> {
         task
     }
 
-    fn new_fork(&self) -> Option<Arc<Self>> {
+    pub fn new_fork(&self) -> Option<Arc<Self>> {
         let inner = self.inner.lock();
         info!("task fork from pid: {}", inner.pid.value());
         let trap_cx_ref = unsafe { (inner.trap_cx_ptr as *mut TrapContext).as_mut() }.unwrap();
@@ -99,6 +99,22 @@ impl<SD: Default> Task<SD> {
         trap_cx_ref.x[10] = 0;
         drop(task_inner);
         Some(task)
+    }
+
+    pub fn aspace(&self) -> Arc<AddressSpace> {
+        self.inner.lock().aspace.clone()
+    }
+
+    pub fn set_priority(&self, priority: usize) {
+        self.inner.lock().priority = priority
+    }
+
+    pub fn trap_cx_ptr(&self) -> usize {
+        self.inner.lock().trap_cx_ptr
+    }
+
+    pub fn pid(&self) -> usize {
+        self.inner.lock().pid.value()
     }
 }
 
@@ -203,34 +219,11 @@ impl TaskManager {
         unreachable!("We should not switch back to exited task!");
     }
 
-    pub fn current_aspace(&self) -> Option<Arc<AddressSpace>> {
-        let inner = self.inner.lock();
-        let aspace = inner
-            .current
-            .as_ref()
-            .map(|t| t.inner.lock().aspace.clone());
-        aspace
+    pub fn current_task(&self) -> Option<Arc<TaskImpl>> {
+        self.inner.lock().current.clone()
     }
 
-    pub fn set_current_task_priority(&self, priority: usize) {
-        let inner = self.inner.lock();
-        inner.current.as_ref().unwrap().inner.lock().priority = priority;
-    }
-
-    pub fn current_cx_ptr(&self) -> usize {
-        let inner = self.inner.lock();
-        let trap_cx_ptr = inner.current.as_ref().unwrap().inner.lock().trap_cx_ptr;
-        trap_cx_ptr
-    }
-
-    pub fn fork_current(&self) -> Option<usize> {
-        let mut inner = self.inner.lock();
-        let new_task = inner.current.as_ref().and_then(|task| task.new_fork());
-        if let Some(new_task) = new_task {
-            let pid = new_task.inner.lock().pid.value();
-            inner.ready_tasks.push(new_task);
-            return Some(pid);
-        }
-        None
+    pub fn add_task(&self, task: Arc<TaskImpl>) {
+        self.inner.lock().ready_tasks.push(task)
     }
 }

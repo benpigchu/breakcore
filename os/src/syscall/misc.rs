@@ -11,7 +11,7 @@ pub struct TimeVal {
 }
 
 pub fn sys_get_time(time_val_addr: VirtAddr) -> isize {
-    let aspace = if let Some(aspace) = TASK_MANAGER.current_aspace() {
+    let aspace = if let Some(aspace) = TASK_MANAGER.current_task().map(|task| task.aspace()) {
         aspace
     } else {
         return -1;

@@ -13,13 +13,21 @@ pub fn sys_set_priority(priority: isize) -> isize {
     if priority < 2 {
         return -1;
     }
-    TASK_MANAGER.set_current_task_priority(priority as usize);
+    TASK_MANAGER
+        .current_task()
+        .unwrap()
+        .set_priority(priority as usize);
     priority
 }
 
 pub fn sys_fork() -> isize {
-    TASK_MANAGER
-        .fork_current()
-        .map(|pid| pid as isize)
-        .unwrap_or(-1)
+    if let Some(fork) = TASK_MANAGER
+        .current_task()
+        .and_then(|current| current.new_fork())
+    {
+        let pid = fork.pid();
+        TASK_MANAGER.add_task(fork);
+        return pid as isize;
+    }
+    -1
 }

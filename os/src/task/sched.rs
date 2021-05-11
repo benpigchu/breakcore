@@ -1,14 +1,14 @@
 use super::{Task, TaskStatus};
 use alloc::sync::Arc;
-pub(super) trait Scheduler {
+pub trait Scheduler {
     type Data: Default;
     fn pick_next(&self, tasks: &[Arc<Task<Self::Data>>]) -> Option<usize>;
     fn proc_tick(&self, task: &Arc<Task<Self::Data>>);
 }
 
-pub(super) struct StrideScheduler;
+pub struct StrideScheduler;
 #[derive(Default)]
-pub(super) struct StrideSchedulerData {
+pub struct StrideSchedulerData {
     stride: usize,
 }
 
@@ -42,8 +42,8 @@ impl Scheduler for StrideScheduler {
     }
 }
 
-pub(super) type SchedulerImpl = StrideScheduler;
+pub type SchedulerImpl = StrideScheduler;
 
-pub(super) fn create_scheduler() -> SchedulerImpl {
+pub fn create_scheduler() -> SchedulerImpl {
     StrideScheduler
 }

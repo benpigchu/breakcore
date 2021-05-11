@@ -6,7 +6,7 @@ const FD_STDOUT: usize = 1;
 
 pub fn sys_write(fd: usize, addr: VirtAddr, len: usize) -> isize {
     let mut buffer = vec![0; len];
-    let aspace = if let Some(aspace) = TASK_MANAGER.current_aspace() {
+    let aspace = if let Some(aspace) = TASK_MANAGER.current_task().map(|task| task.aspace()) {
         aspace
     } else {
         return -1;
