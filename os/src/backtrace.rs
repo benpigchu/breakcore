@@ -105,7 +105,7 @@ fn load_debuginfo() -> Option<Addr2LineContext> {
 }
 
 pub const DEBUGINFO_ELF_ADDRESS: usize = 0x80800000;
-pub const DEBUGINFO_ELF_SIZE: usize = 0x00800000;
+pub const DEBUGINFO_ELF_SIZE: usize = 0x01800000;
 lazy_static! {
     static ref ADDR2LINE_CONTEXT: Option<Addr2LineContext> = load_debuginfo();
 }
