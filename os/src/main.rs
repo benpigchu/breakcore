@@ -6,6 +6,7 @@
 #![feature(cell_update)]
 #![feature(alloc_error_handler)]
 #![feature(drain_filter)]
+#![feature(map_try_insert)]
 
 global_asm!(include_str!("entry.asm"));
 

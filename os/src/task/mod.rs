@@ -123,7 +123,6 @@ impl<SD: Default> Task<SD> {
 type TaskImpl = Task<<SchedulerImpl as Scheduler>::Data>;
 
 pub struct TaskManager {
-    app_num: usize,
     inner: Mutex<TaskManagerInner>,
 }
 pub struct TaskManagerInner {
@@ -135,7 +134,6 @@ pub struct TaskManagerInner {
 
 lazy_static! {
     pub static ref TASK_MANAGER: TaskManager = TaskManager {
-        app_num: APP_MANAGER.app_num,
         inner: Mutex::new(TaskManagerInner {
             current: None,
             last: None,
