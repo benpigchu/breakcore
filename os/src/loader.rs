@@ -22,6 +22,7 @@ struct AppInfo {
 pub struct AppManager {
     pub app_num: usize,
     apps: [AppInfo; MAX_APP_NUM],
+    pub init_app: Option<&'static str>,
 }
 
 unsafe impl Sync for AppManager {}
@@ -52,7 +53,12 @@ lazy_static! {
                 }
             }
         }
-        AppManager { app_num, apps }
+        let init_app = apps.get(0).map(|app| app.name);
+        AppManager {
+            app_num,
+            apps,
+            init_app,
+        }
     };
 }
 
@@ -67,11 +73,8 @@ impl AppManager {
             );
         }
     }
-    pub fn load_elf(&self, id: usize, aspace: &Arc<AddressSpace>) -> Option<LoadedElf> {
-        if id >= self.app_num {
-            return None;
-        }
-        let app = &self.apps[id];
+    pub fn load_elf(&self, name: &str, aspace: &Arc<AddressSpace>) -> Option<LoadedElf> {
+        let app = self.apps.iter().find(|app| app.name == name)?;
         let app_start_address = app.start;
         let app_end_address = app.end;
         let app_bin_data = unsafe {

@@ -67,14 +67,14 @@ impl<SD: Default> Task<SD> {
         })
     }
 
-    fn new_init(app_id: usize) -> Arc<Self> {
-        info!("task from app: {}", app_id);
+    fn new_init(app_name: &str) -> Arc<Self> {
+        info!("task from app: {}", app_name);
         let task = Self::new_base();
         let inner = task.inner.lock();
         let trap_cx_ref = unsafe { (inner.trap_cx_ptr as *mut TrapContext).as_mut() }.unwrap();
 
         let loaded_elf = APP_MANAGER
-            .load_elf(app_id, &inner.aspace)
+            .load_elf(app_name, &inner.aspace)
             .expect("Init ELF load failed");
         trap_cx_ref.set_pc(loaded_elf.entry);
         trap_cx_ref.set_sp(loaded_elf.user_sp);
@@ -159,9 +159,9 @@ impl TaskManagerInner {
 impl TaskManager {
     pub fn launch(&self) -> ! {
         let mut inner = self.inner.lock();
-        for id in 0..self.app_num {
-            inner.ready_tasks.push(Task::new_init(id))
-        }
+        inner
+            .ready_tasks
+            .push(Task::new_init(APP_MANAGER.init_app.expect("No init app!")));
         drop(inner);
         self.switch_task();
         unreachable!("We will no use boot_stack from here!");
