@@ -73,7 +73,9 @@ impl<SD: Default> Task<SD> {
         let inner = task.inner.lock();
         let trap_cx_ref = unsafe { (inner.trap_cx_ptr as *mut TrapContext).as_mut() }.unwrap();
 
-        let loaded_elf = APP_MANAGER.load_elf(app_id, &inner.aspace);
+        let loaded_elf = APP_MANAGER
+            .load_elf(app_id, &inner.aspace)
+            .expect("Init ELF load failed");
         trap_cx_ref.set_pc(loaded_elf.entry);
         trap_cx_ref.set_sp(loaded_elf.user_sp);
 

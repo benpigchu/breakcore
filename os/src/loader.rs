@@ -67,9 +67,9 @@ impl AppManager {
             );
         }
     }
-    pub fn load_elf(&self, id: usize, aspace: &Arc<AddressSpace>) -> LoadedElf {
+    pub fn load_elf(&self, id: usize, aspace: &Arc<AddressSpace>) -> Option<LoadedElf> {
         if id >= self.app_num {
-            panic!("Out of range app id!")
+            return None;
         }
         let app = &self.apps[id];
         let app_start_address = app.start;
@@ -88,16 +88,25 @@ impl AppManager {
         use object::{Bytes, LittleEndian};
         let app_bin_bytes = Bytes(app_bin_data);
         // we are using little endian elf64 format
-        let file_header = FileHeader64::<LittleEndian>::parse(app_bin_bytes).unwrap();
+        let file_header = FileHeader64::<LittleEndian>::parse(app_bin_bytes).ok()?;
         info!("Parsing ELF for {}...", app.name);
-        assert!(file_header.is_little_endian());
-        assert!(file_header.is_class_64());
-        assert_eq!(file_header.e_machine(LittleEndian), EM_RISCV);
-        assert_eq!(file_header.e_type(LittleEndian), ET_EXEC);
+        if !file_header.is_little_endian() {
+            return None;
+        }
+        if !file_header.is_class_64() {
+            return None;
+        }
+        if file_header.e_machine(LittleEndian) != EM_RISCV {
+            return None;
+        }
+        if file_header.e_type(LittleEndian) != ET_EXEC {
+            return None;
+        }
         let entry = file_header.e_entry(LittleEndian) as usize;
         let program_headers = file_header
             .program_headers(LittleEndian, app_bin_bytes)
-            .unwrap();
+            .ok()?;
+        aspace.clean_user();
         for program_header in program_headers {
             fn pte_flags_from_ph_flags(ph_flags: u32) -> PTEFlags {
                 let mut pte_flags = PTEFlags::empty();
@@ -126,21 +135,19 @@ impl AppManager {
                     if vaddr_start % PAGE_SIZE != 0 {
                         panic!("ELF LOAD segment start address not page aligned")
                     }
-                    let vmo = VMObjectPaged::new(page_count(mem_size)).unwrap();
+                    let vmo = VMObjectPaged::new(page_count(mem_size))?;
                     let buf = program_header
                         .data_as_array(LittleEndian, app_bin_bytes)
-                        .unwrap();
+                        .ok()?;
                     let wrote_size = vmo.write(0, buf);
                     assert_eq!(buf.len(), wrote_size);
-                    aspace
-                        .map(
-                            vmo,
-                            0,
-                            VirtAddr::from(vaddr_start).floor_page_num(),
-                            None,
-                            pte_flags,
-                        )
-                        .unwrap();
+                    aspace.map(
+                        vmo,
+                        0,
+                        VirtAddr::from(vaddr_start).floor_page_num(),
+                        None,
+                        pte_flags,
+                    )?;
                     elf_vaddr_end = usize::max(elf_vaddr_end, vaddr_end)
                 }
                 PT_GNU_STACK => {
@@ -151,7 +158,8 @@ impl AppManager {
                     stack_pte_flags.insert(pte_flags)
                 }
                 PT_INTERP => {
-                    panic!("Dynamic linking is not supported");
+                    warn!("Dynamic linking is not supported");
+                    return None;
                 }
                 other => {
                     info!("    ELF segment:{:?}", other);
@@ -162,14 +170,14 @@ impl AppManager {
             llvm_asm!("fence.i" :::: "volatile");
         }
         // map user stack
-        let ustack = VMObjectPaged::new(page_count(USER_STACK_SIZE)).unwrap();
+        let ustack = VMObjectPaged::new(page_count(USER_STACK_SIZE))?;
         let vsstack_pn = VirtAddr::from(elf_vaddr_end + PAGE_SIZE).ceil_page_num();
-        aspace.map(ustack, 0, vsstack_pn, None, stack_pte_flags);
+        aspace.map(ustack, 0, vsstack_pn, None, stack_pte_flags)?;
         info!("map user stack at {:#x?}", vsstack_pn.addr());
-        LoadedElf {
+        Some(LoadedElf {
             entry,
             user_sp: usize::from(vsstack_pn.addr()) + USER_STACK_SIZE,
-        }
+        })
     }
 }
 

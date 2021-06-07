@@ -227,6 +227,19 @@ impl AddressSpace {
         }
         Some(())
     }
+
+    pub fn clean_user(&self) {
+        let mut inner = self.inner.lock();
+        let drained = inner
+            .mappings
+            .drain_filter(|mapping| mapping.flags.contains(PTEFlags::U));
+        let mut page_table = self.page_table.lock();
+        for mapping in drained {
+            for i in 0..mapping.page_count {
+                page_table.unmap((usize::from(mapping.base_vpn) + i).into())
+            }
+        }
+    }
 }
 
 lazy_static! {
