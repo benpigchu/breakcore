@@ -19,3 +19,7 @@
 之后我们在 `Task` 上新增一个 `new_fork` 函数，它会先创建一个基本的 `Task`， 然后调用它的 `AddressSpace` 上的 `fork_from` 复制地址空间，然后再将上下文中通用寄存器、 pc 、sstatus 的内容复制过去，并将存放 syscall 返回值的寄存器改为 0。最后在系统调用时用 `new_fork` 新建 `Task` ，并将其加入接下来可以运行的 `Task` 列表即可。
 
 要实现 exec，我们首先在 `AddressSpace` 上新增一个 `clean_user` 方法，用于清除原有的用户空间映射。同时，我们使加载 ELF 的方法在确认 ELF 存在且格式正确时调用 `clean_user` 方法，而在未能确认 ELF 格式时直接返回。之后我们在在 `Task` 上新增一个 `exec` 函数，它会先尝试重新加载 ELF 文件，如果成功则对应重置应用程序上下文。最后，由于 exec 的接口需要使用 0 结尾的字符串的指针，我们在 `AddressSpace` 上新增 `read_cstr` 方法读取 0 结尾的字符串。最后把这些组合在一起，读取字符串并调用 `Task` 上的 `exec` 函数，我们便实现了 exec。
+
+## 实现 getpid 和 waitpid
+
+getpid 的实现十分简单，只需要在系统调用里从 `Task` 获取 `PidHandle` 再获取它的值即可。

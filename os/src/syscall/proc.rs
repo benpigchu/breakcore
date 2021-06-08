@@ -1,6 +1,12 @@
 use crate::mm::addr::*;
 use crate::task::TASK_MANAGER;
 
+pub fn sys_getpid() -> isize {
+    TASK_MANAGER
+        .current_task()
+        .map_or(-1, |task| task.pid() as isize)
+}
+
 pub fn sys_exit(exit_code: i32) -> ! {
     TASK_MANAGER.exit_task(exit_code);
 }

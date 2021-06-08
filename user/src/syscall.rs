@@ -8,6 +8,7 @@ const SYSCALL_WRITE: usize = 64;
 const SYSCALL_EXIT: usize = 93;
 const SYSCALL_YIELD: usize = 124;
 const SYSCALL_GET_TIME: usize = 169;
+const SYSCALL_GETPID: usize = 172;
 const SYSCALL_SET_PRIORITY: usize = 140;
 const SYSCALL_MMAP: usize = 222;
 const SYSCALL_MUNMAP: usize = 215;
@@ -42,6 +43,10 @@ pub fn sys_yield() -> isize {
 
 pub fn sys_get_time(time_val: &mut TimeVal) -> isize {
     syscall(SYSCALL_GET_TIME, time_val as *mut _ as usize, 0, 0)
+}
+
+pub fn sys_getpid() -> isize {
+    syscall(SYSCALL_GETPID, 0, 0, 0)
 }
 
 pub fn sys_set_priority(priority: isize) -> isize {

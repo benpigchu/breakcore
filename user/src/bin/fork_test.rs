@@ -5,7 +5,7 @@
 extern crate breakcore_user as user;
 
 use core::cmp::{Ord, Ordering};
-use user::sys_fork;
+use user::{sys_fork, sys_getpid};
 
 #[no_mangle]
 fn main() -> i32 {
@@ -15,7 +15,7 @@ fn main() -> i32 {
             println!("Fork failed!")
         }
         Ordering::Equal => {
-            println!("Fork success, this is child")
+            println!("Fork success, this is child with pid {:?}", sys_getpid())
         }
         Ordering::Greater => {
             println!("Fork success into pid {:?}", result)
