@@ -11,7 +11,6 @@ use log::*;
 global_asm!(include_str!("embed_app.asm"));
 
 pub const USER_STACK_SIZE: usize = 4096 * 16;
-pub const MAX_APP_NUM: usize = 16;
 
 #[derive(Debug)]
 struct AppInfo {
@@ -31,9 +30,6 @@ lazy_static! {
         }
         let app_list = app_list as usize as *const usize;
         let app_num = unsafe { app_list.read_volatile() };
-        if app_num > MAX_APP_NUM {
-            panic!("Too many apps!");
-        }
         let mut init_app: Option<&'static str> = None;
         let mut apps = BTreeMap::<&'static str, AppInfo>::new();
         for i in 0..app_num {

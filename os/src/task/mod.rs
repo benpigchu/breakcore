@@ -103,6 +103,22 @@ impl<SD: Default> Task<SD> {
         Some(task)
     }
 
+    pub fn exec(&self, app_name: &str) -> Option<()> {
+        let inner = self.inner.lock();
+        info!("task exec binary: {}", app_name);
+        let loaded_elf = APP_MANAGER.load_elf(app_name, &inner.aspace)?;
+
+        let token = inner.aspace.token();
+        let kstack = inner.pid.kernel_stack();
+        let trap_cx_ref = unsafe { (inner.trap_cx_ptr as *mut TrapContext).as_mut() }.unwrap();
+        let user_cx = TrapContext::new(token, kstack.get_bottom_sp(), inner.trap_cx_ptr);
+        *trap_cx_ref = user_cx;
+        trap_cx_ref.set_pc(loaded_elf.entry);
+        trap_cx_ref.set_sp(loaded_elf.user_sp);
+
+        Some(())
+    }
+
     pub fn aspace(&self) -> Arc<AddressSpace> {
         self.inner.lock().aspace.clone()
     }

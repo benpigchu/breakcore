@@ -17,6 +17,7 @@ const SYSCALL_SET_PRIORITY: usize = 140;
 const SYSCALL_MMAP: usize = 222;
 const SYSCALL_MUNMAP: usize = 215;
 const SYSCALL_FORK: usize = 220;
+const SYSCALL_EXEC: usize = 221;
 
 pub fn syscall(syscall_id: usize, args0: usize, args1: usize, args2: usize) -> isize {
     match syscall_id {
@@ -28,6 +29,7 @@ pub fn syscall(syscall_id: usize, args0: usize, args1: usize, args2: usize) -> i
         SYSCALL_MMAP => sys_mmap(args0.into(), args1, args2),
         SYSCALL_MUNMAP => sys_munmap(args0.into(), args1),
         SYSCALL_FORK => sys_fork(),
+        SYSCALL_EXEC => sys_exec(args0.into()),
         _ => {
             warn!("Unsupported syscall_id: {}", syscall_id);
             sys_exit(-1)

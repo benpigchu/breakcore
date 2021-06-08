@@ -1,10 +1,10 @@
-use lazy_static::{initialize, lazy_static};
-
 use super::addr::*;
 use super::page_table::{PTEFlags, PageTable};
 use super::vmo::{VMObject, VMObjectPaged, VMObjectPhysical, TRAMPOLINE};
+use alloc::string::String;
 use alloc::sync::Arc;
 use alloc::vec::Vec;
+use lazy_static::{initialize, lazy_static};
 use log::*;
 use riscv::register::{satp, sstatus};
 use spin::Mutex;
@@ -190,6 +190,35 @@ impl AddressSpace {
             }
         }
         progress
+    }
+
+    pub fn read_cstr(&self, vaddr: VirtAddr, user: bool) -> String {
+        let inner = self.inner.lock();
+        let mut flags = PTEFlags::R;
+        if user {
+            flags.insert(PTEFlags::U)
+        }
+        let mut bytes = Vec::<u8>::new();
+        'read: loop {
+            let pos = VirtAddr::from(usize::from(vaddr) + bytes.len());
+            let mapping = match inner.find_mapping(pos, flags) {
+                Some(mapping) => mapping,
+                None => break,
+            };
+            let start = usize::from(pos) - usize::from(mapping.base_vpn.addr());
+            let end = mapping.page_count * PAGE_SIZE;
+            let mut byte = [0u8];
+            for offset in start..end {
+                if mapping.vmo.read(offset, &mut byte) < 1 {
+                    break 'read;
+                }
+                if byte[0] == 0 {
+                    break 'read;
+                }
+                bytes.push(byte[0])
+            }
+        }
+        unsafe { String::from_utf8_unchecked(bytes) }
     }
 
     pub fn fork_from(&self, origin: &Arc<AddressSpace>) -> Option<()> {
